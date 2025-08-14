@@ -129,7 +129,7 @@ function WorkshopForm({ onCreated }: { onCreated: () => void }) {
   const [date, setDate] = useState("")
   const [time, setTime] = useState("")
   const [capacity, setCapacity] = useState<number>(20)
-  const [price, setPrice] = useState<number>(45000) // אגורות
+  const [price, setPrice] = useState<number>(450)
   const [paymentLink, setPaymentLink] = useState("")
   const [active, setActive] = useState(true)
   const [isPublic, setIsPublic] = useState(true)
@@ -151,7 +151,7 @@ function WorkshopForm({ onCreated }: { onCreated: () => void }) {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           title, description, event_at, capacity,
-          price_cents: price, payment_link: paymentLink || null,
+          price_nis: price, payment_link: paymentLink || null,
           is_active: active, is_public: isPublic,
         }),
       })
@@ -161,7 +161,7 @@ function WorkshopForm({ onCreated }: { onCreated: () => void }) {
       }
       // reset
       setTitle(""); setDescription(""); setDate(""); setTime("")
-      setCapacity(20); setPrice(45000); setPaymentLink(""); setActive(true)
+      setCapacity(20); setPrice(450); setPaymentLink(""); setActive(true)
       onCreated()
     } catch (e: any) {
       setErr(e?.message || "שגיאה בלתי צפויה")
@@ -207,9 +207,17 @@ function WorkshopForm({ onCreated }: { onCreated: () => void }) {
               <Input id="capacity" type="number" min={1} value={capacity} onChange={(e) => setCapacity(Number(e.target.value || 0))} />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="price" className="font-semibold">מחיר (אגורות)</Label>
-              <Input id="price" type="number" min={0} value={price} onChange={(e) => setPrice(Number(e.target.value || 0))} />
-              <div className="text-xs text-muted-foreground">יוצג: {(price / 100).toLocaleString("he-IL", { style: "currency", currency: "ILS" })}</div>
+              <Label htmlFor="price" className="font-semibold">מחיר (ש"ח)</Label>
+              <Input
+                id="price"
+                type="number"
+                min={0}
+                value={price}
+                onChange={(e) => setPrice(Math.max(0, Math.floor(Number(e.target.value || 0))))}
+              />
+              <div className="text-xs text-muted-foreground">
+                יוצג לציבור כ־{price.toLocaleString("he-IL", { style: "currency", currency: "ILS", maximumFractionDigits: 0 })}
+              </div>
             </div>
             <div className="flex items-center gap-3">
               <Switch id="isPublic" checked={isPublic} onCheckedChange={v => setIsPublic(Boolean(v))} />
