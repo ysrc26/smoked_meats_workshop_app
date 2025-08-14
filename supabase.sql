@@ -20,6 +20,7 @@ create table if not exists public.registrations (
   seats int not null default 1 check (seats > 0),
   status text not null default 'pending' check (status in ('pending','confirmed','cancelled')),
   paid boolean not null default false,
+  payment_link text,
   external_payment_id text,
   created_at timestamptz not null default now()
 );
