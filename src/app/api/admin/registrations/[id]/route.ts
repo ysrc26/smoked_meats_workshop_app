@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabaseAdmin'
 import { isAdmin } from '@/app/api/admin/guard'
+import { getStatusAfterPaid } from '@/lib/status'
 
 export async function PATCH(req: Request, context: any) {
   if (!(await isAdmin())) {
@@ -41,9 +42,17 @@ export async function PATCH(req: Request, context: any) {
     return NextResponse.json({ error: 'no fields to update' }, { status: 400 })
   }
 
-  // אם שולם=true ואין סטטוס, נעדכן ל-confirmed
+  // אם שולם=true ואין סטטוס, נעדכן ל-confirmed רק אם ההזמנה עדיין Pending
   if (allowed.paid === true && !allowed.status) {
-    allowed.status = 'confirmed'
+    const { data: reg, error: regErr } = await supabaseAdmin
+      .from('registrations')
+      .select('status')
+      .eq('id', id)
+      .single()
+    if (regErr)
+      return NextResponse.json({ error: regErr.message }, { status: 500 })
+    const status = getStatusAfterPaid(true, reg.status)
+    if (status !== reg.status) allowed.status = status
   }
 
   const { data, error } = await supabaseAdmin
