@@ -9,7 +9,7 @@ export type Workshop = {
   description: string | null
   event_at: string
   capacity: number
-  price_cents: number
+  price: number
   payment_link: string | null
   seats_left: number
 }
@@ -22,7 +22,7 @@ export function PublicWorkshopCard({
   onRegister: (w: Workshop) => void
 }) {
   const date = new Date(w.event_at)
-  const price = (w.price_cents / 100).toLocaleString("he-IL", { style: "currency", currency: "ILS" })
+  const price = (w.price).toLocaleString("he-IL", { style: "currency", currency: "ILS" })
 
   return (
     <Card className="border border-line">
