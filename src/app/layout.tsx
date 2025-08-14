@@ -4,15 +4,13 @@ import type { Metadata } from "next"
 export const metadata: Metadata = {
   title: "המעשנה בחצר — סדנאות בשרים",
   description: "ניהול ורישום לסדנאות",
-  icons: {
-    icon: "/favicon.ico",
-  },
 }
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="he" dir="rtl">
       <head>
+        <meta name="apple-mobile-web-app-title" content="SmokedMeatWorkshopsApp" />
         <link rel="icon" href="/favicon.ico" />
       </head>
       <body className="min-h-dvh bg-background text-foreground">
