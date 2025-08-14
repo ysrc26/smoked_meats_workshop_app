@@ -8,7 +8,6 @@ import {
 import { Label } from "@/components/ui/label"
 import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
-import { Checkbox } from "@/components/ui/checkbox"
 import { Button } from "@/components/ui/button"
 import { Separator } from "@/components/ui/separator"
 import { Switch } from "@/components/ui/switch"
@@ -27,8 +26,6 @@ import {
 import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from "@/components/ui/select"
 
 // ---------------------------------- Utils ----------------------------------
-// Helper function to get the base URL of the application
-// This is used to construct share URLs for workshops
 function getBaseUrl() {
   if (typeof window !== "undefined") return window.location.origin
   return process.env.NEXT_PUBLIC_BASE_URL || ""
@@ -38,7 +35,6 @@ function getShareUrl(access_token?: string) {
   const base = process.env.NEXT_PUBLIC_BASE_URL || getBaseUrl()
   return `${base}/w/${access_token}`
 }
-
 
 // ---------------------------------- Admin Login ----------------------------------
 function AdminLogin({ onOk }: { onOk: () => void }) {
@@ -288,7 +284,6 @@ function WorkshopRow({ w, onChanged }: { w: any, onChanged: () => void }) {
     setTimeout(() => setCopied(false), 1500)
   }
 
-
   return (
     <Card className="border border-line">
       <CardContent className="py-4">
@@ -300,7 +295,6 @@ function WorkshopRow({ w, onChanged }: { w: any, onChanged: () => void }) {
                 {w.is_active ? "פעילה" : "מושבתת"}
               </Badge>
 
-              {/* אם הסדנה פרטית – הצג תג + כפתור העתקה */}
               {!w.is_public && (
                 <>
                   <Badge variant="outline">פרטית</Badge>
@@ -477,7 +471,6 @@ function WorkshopEditDialog({
         </div>
       )}
 
-
       <div className="flex justify-end gap-2">
         <Button variant="secondary" onClick={onClose}>ביטול</Button>
         <Button onClick={save} disabled={busy}>{busy ? "שומר…" : "שמירה"}</Button>
@@ -485,7 +478,6 @@ function WorkshopEditDialog({
     </DialogContent>
   )
 }
-
 
 // ---------------------------------- Registrations Table ----------------------------------
 function RegistrationsBlock() {
@@ -508,6 +500,7 @@ function RegistrationsBlock() {
     setDraft({
       seats: r.seats,
       paid: !!r.paid,
+      amount_paid: r.amount_paid ?? 0,              // ⬅️ חדש
       payment_method: r.payment_method ?? "none",
       status: r.status,
       payment_link: r.payment_link ?? "",
@@ -524,6 +517,9 @@ function RegistrationsBlock() {
       const patch: any = {
         seats: Number(draft.seats),
         paid: Boolean(draft.paid),
+        amount_paid: Number.isFinite(Number(draft.amount_paid))
+          ? Math.max(0, Math.floor(Number(draft.amount_paid)))
+          : 0,                                       // ⬅️ חדש
         status: draft.status,
         payment_method: draft.payment_method === "none" ? null : draft.payment_method,
         payment_link: draft.payment_link || null,
@@ -553,6 +549,25 @@ function RegistrationsBlock() {
     }
   }
 
+  // עוזר להצגה: אם ה-API מחזיר גם price/workshop_price נחשב total; אחרת נציג חלקית X בלבד
+  const renderPaidCell = (r: any) => {
+    const amount = Number(r.amount_paid ?? 0)
+    const pricePerSeat = Number(r.workshop_price ?? r.price ?? NaN) // אם ה-API שלך מצרף מחיר סדנה לכל רשומה
+    const seats = Number(r.seats ?? 1)
+
+    if (Number.isFinite(pricePerSeat)) {
+      const total = pricePerSeat * seats
+      if (amount >= total) return 'כן'
+      if (amount > 0) return `חלקית ${amount}/${total}`
+      return 'לא'
+    } else {
+      // בלי מחיר סדנה
+      if (r.paid) return 'כן'
+      if (amount > 0) return `חלקית ${amount}`
+      return 'לא'
+    }
+  }
+
   return (
     <Card className="border border-line">
       <CardHeader>
@@ -571,6 +586,7 @@ function RegistrationsBlock() {
                 <TableHead className="text-right">מזהה חיצוני</TableHead>
                 <TableHead className="text-right">כמות</TableHead>
                 <TableHead className="text-right">שולם</TableHead>
+                <TableHead className="text-right">שולם בפועל (ש"ח)</TableHead> {/* ⬅️ חדש */}
                 <TableHead className="text-right">שיטת תשלום</TableHead>
                 <TableHead className="text-right">סטטוס</TableHead>
                 <TableHead className="text-right">תאריך</TableHead>
@@ -621,7 +637,7 @@ function RegistrationsBlock() {
                       )}
                     </TableCell>
 
-                    {/* שולם */}
+                    {/* שולם (מצב כולל) */}
                     <TableCell className="text-right">
                       {isEdit ? (
                         <Switch
@@ -629,7 +645,27 @@ function RegistrationsBlock() {
                           onCheckedChange={(v) => setDraft((d: any) => ({ ...d, paid: Boolean(v) }))}
                           disabled={busyId === r.id}
                         />
-                      ) : (r.paid ? 'כן' : 'לא')}
+                      ) : renderPaidCell(r)}
+                    </TableCell>
+
+                    {/* שולם בפועל (ש"ח) — עריך/הצג */}
+                    <TableCell className="text-right">
+                      {isEdit ? (
+                        <Input
+                          type="number"
+                          min={0}
+                          className="w-28"
+                          value={draft.amount_paid ?? 0}
+                          onChange={(e) =>
+                            setDraft((d: any) => ({
+                              ...d,
+                              amount_paid: Math.max(0, Math.floor(Number(e.target.value || 0)))
+                            }))
+                          }
+                        />
+                      ) : (
+                        Number(r.amount_paid ?? 0)
+                      )}
                     </TableCell>
 
                     {/* שיטת תשלום */}
@@ -716,7 +752,7 @@ function RegistrationsBlock() {
               })}
               {rows.length === 0 && (
                 <TableRow>
-                  <TableCell colSpan={11} className="text-center text-muted-foreground">
+                  <TableCell colSpan={12} className="text-center text-muted-foreground">
                     אין רישומים עדיין.
                   </TableCell>
                 </TableRow>

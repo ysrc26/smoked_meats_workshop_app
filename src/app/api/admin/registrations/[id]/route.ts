@@ -1,83 +1,147 @@
-import { NextResponse } from 'next/server'
+// src/app/api/admin/registrations/[id]/route.ts
+import { NextRequest, NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabaseAdmin'
-import { isAdmin } from '@/app/api/admin/guard'
 import { getStatusAfterPaid } from '@/lib/status'
 
-export async function PATCH(req: Request, context: any) {
-  if (!(await isAdmin())) {
-    return NextResponse.json({ error: 'unauthorized' }, { status: 401 })
-  }
-
-  const { id } = (context?.params || {}) as { id: string }
-  if (!id) return NextResponse.json({ error: 'missing id' }, { status: 400 })
-
-  const body = await req.json()
-
-  const allowed: Record<string, any> = {}
-
-  // כמות מושבים (חייב > 0)
-  if (typeof body.seats === 'number') {
-    if (body.seats <= 0) {
-      return NextResponse.json({ error: 'seats must be > 0' }, { status: 400 })
-    }
-    allowed.seats = body.seats
-  }
-
-  // שדות תשלום/סטטוס
-  if (typeof body.paid === 'boolean') allowed.paid = body.paid
-  if (typeof body.status === 'string') allowed.status = body.status
-  if (typeof body.payment_method === 'string' || body.payment_method === null) {
-    allowed.payment_method = body.payment_method
-  }
-  if (typeof body.external_payment_id === 'string' || body.external_payment_id === null) {
-    allowed.external_payment_id = body.external_payment_id
-  }
-  if (typeof body.payment_link === 'string' || body.payment_link === null) {
-    allowed.payment_link = body.payment_link
-  }
-
-  // (אופציונלי) עדכון פרטי איש קשר
-  if (typeof body.full_name === 'string') allowed.full_name = body.full_name
-  if (typeof body.email === 'string') allowed.email = body.email
-  if (typeof body.phone === 'string') allowed.phone = body.phone
-
-  if (Object.keys(allowed).length === 0) {
-    return NextResponse.json({ error: 'no fields to update' }, { status: 400 })
-  }
-
-  // אם שולם=true ואין סטטוס, נעדכן ל-confirmed רק אם ההזמנה עדיין Pending
-  if (allowed.paid === true && !allowed.status) {
-    const { data: reg, error: regErr } = await supabaseAdmin
-      .from('registrations')
-      .select('status')
-      .eq('id', id)
-      .single()
-    if (regErr)
-      return NextResponse.json({ error: regErr.message }, { status: 500 })
-    const status = getStatusAfterPaid(true, reg.status)
-    if (status !== reg.status) allowed.status = status
-  }
-
-  const { data, error } = await supabaseAdmin
-    .from('registrations')
-    .update(allowed)
-    .eq('id', id)
-    .select('*')
-    .single()
-
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 })
-  return NextResponse.json({ data })
+/**
+ * עוזר לנירמול שיטת תשלום
+ */
+function normalizePaymentMethod(v: unknown): 'cash' | 'card' | 'transfer' | 'other' | null {
+  if (v === null) return null
+  const s = String(v || '').trim().toLowerCase()
+  if (!s || s === 'none' || s === 'null') return null
+  if (s === 'cash') return 'cash'
+  if (s === 'card' || s === 'credit' || s === 'creditcard') return 'card'
+  if (s === 'transfer' || s === 'bank' || s === 'bit' || s === 'banktransfer') return 'transfer'
+  return 'other'
 }
 
-export async function DELETE(_req: Request, context: any) {
-  if (!(await isAdmin())) {
-    return NextResponse.json({ error: 'unauthorized' }, { status: 401 })
+/**
+ * מביא את ההרשמה + מחיר הסדנה
+ */
+async function fetchRegistrationWithWorkshop(id: string) {
+  const { data: reg, error: regErr } = await supabaseAdmin
+    .from('registrations')
+    .select('id, workshop_id, seats, paid, status, amount_paid, payment_method, payment_link, created_at')
+    .eq('id', id)
+    .single()
+
+  if (regErr || !reg) {
+    return { error: regErr?.message || 'registration not found' }
   }
 
-  const { id } = (context?.params || {}) as { id: string }
-  if (!id) return NextResponse.json({ error: 'missing id' }, { status: 400 })
+  const { data: w, error: wErr } = await supabaseAdmin
+    .from('workshops')
+    .select('price')
+    .eq('id', reg.workshop_id)
+    .single()
 
-  const { error } = await supabaseAdmin.from('registrations').delete().eq('id', id)
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 })
-  return NextResponse.json({ ok: true })
+  if (wErr || !w || typeof w.price !== 'number') {
+    return { error: 'workshop price not found' }
+  }
+
+  return { reg, price: Number(w.price) }
+}
+
+/**
+ * PATCH /api/admin/registrations/[id]
+ * מעדכן כמות, סכום ששולם, שיטת תשלום, סטטוס וקישור תשלום.
+ * paid מחושב אוטומטית לפי amount_paid >= price*seats (אלא אם בוחרים לכפות סטטוס ידנית).
+ */
+export async function PATCH(req: NextRequest, context: any) {
+  try {
+    const id = context?.params?.id as string
+    if (!id) return NextResponse.json({ error: 'missing id' }, { status: 400 })
+
+    const body = await req.json().catch(() => ({}))
+    const incomingSeats = typeof body.seats === 'number' ? Math.max(1, Math.floor(body.seats)) : undefined
+    const incomingAmountPaid = typeof body.amount_paid === 'number' ? Math.max(0, Math.floor(body.amount_paid)) : undefined
+    const incomingPaymentMethod = normalizePaymentMethod(body.payment_method)
+    const incomingPaymentLink =
+      body.payment_link === null ? null :
+      typeof body.payment_link === 'string' ? body.payment_link.trim() : undefined
+    const incomingStatus =
+      typeof body.status === 'string' && ['pending', 'confirmed', 'cancelled'].includes(body.status)
+        ? (body.status as 'pending' | 'confirmed' | 'cancelled')
+        : undefined
+    // נאסוף גם paid אם הגיע מה־UI, אבל נחשב מחדש בסוף לפי הסכום הכולל
+    const incomingPaid: boolean | undefined =
+      typeof body.paid === 'boolean' ? body.paid : undefined
+
+    // שליפת הרשומה והמחיר
+    const fetched = await fetchRegistrationWithWorkshop(id)
+    // @ts-ignore
+    if (fetched.error) {
+      // @ts-ignore
+      return NextResponse.json({ error: fetched.error }, { status: 404 })
+    }
+    // @ts-ignore
+    const { reg, price } = fetched as { reg: any; price: number }
+
+    // חישוב מצבו החדש של הרישום
+    const seats = incomingSeats ?? Number(reg.seats ?? 1)
+    const amountPaid = incomingAmountPaid ?? Number(reg.amount_paid ?? 0)
+    const total = price * seats
+
+    // paid מחושב אוטומטית לפי סכום ששולם מול הסכום הכולל
+    const computedPaid = amountPaid >= total
+
+    // סטטוס: אם נשלח מפורשות — נכבד אותו; אחרת נחשב מהמצב הקודם והאם שולם
+    const nextStatus =
+      incomingStatus ?? getStatusAfterPaid(computedPaid, reg.status as 'pending' | 'confirmed' | 'cancelled')
+
+    const patch: Record<string, any> = {
+      seats,
+      amount_paid: amountPaid,
+      paid: computedPaid, // מתעלמים מ-incomingPaid כדי לשמור קוהרנטיות
+      status: nextStatus,
+    }
+
+    if (incomingPaymentMethod !== undefined) patch.payment_method = incomingPaymentMethod
+    if (incomingPaymentLink !== undefined) patch.payment_link = incomingPaymentLink
+
+    const { error: updErr } = await supabaseAdmin
+      .from('registrations')
+      .update(patch)
+      .eq('id', id)
+
+    if (updErr) {
+      return NextResponse.json({ error: updErr.message }, { status: 500 })
+    }
+
+    return NextResponse.json({
+      ok: true,
+      id,
+      patch,
+      totals: { total, amount_paid: amountPaid, paid: computedPaid }
+    })
+  } catch (err: any) {
+    console.error('admin registrations PATCH error', err)
+    return NextResponse.json({ error: 'server error', details: err?.message }, { status: 500 })
+  }
+}
+
+/**
+ * DELETE /api/admin/registrations/[id]
+ * מוחק רישום (מתפנה מקום אוטומטית כי ה-view מחשב seats_left דינמית).
+ */
+export async function DELETE(_req: NextRequest, context: any) {
+  try {
+    const id = context?.params?.id as string
+    if (!id) return NextResponse.json({ error: 'missing id' }, { status: 400 })
+
+    const { error } = await supabaseAdmin
+      .from('registrations')
+      .delete()
+      .eq('id', id)
+
+    if (error) {
+      return NextResponse.json({ error: error.message }, { status: 500 })
+    }
+
+    return NextResponse.json({ ok: true, id })
+  } catch (err: any) {
+    console.error('admin registrations DELETE error', err)
+    return NextResponse.json({ error: 'server error', details: err?.message }, { status: 500 })
+  }
 }
