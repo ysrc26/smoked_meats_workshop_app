@@ -2,8 +2,11 @@ import "./globals.css"
 import type { Metadata } from "next"
 
 export const metadata: Metadata = {
-  title: "המעשנה בחצר — סדנאות",
+  title: "המעשנה בחצר — סדנאות בשרים",
   description: "ניהול ורישום לסדנאות",
+  icons: {
+    icon: "@/src/app/favicon.ico",
+  },
 }
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
