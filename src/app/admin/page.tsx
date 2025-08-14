@@ -24,6 +24,7 @@ import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogTrigger
 } from "@/components/ui/dialog"
 import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from "@/components/ui/select"
+import { Trash2 } from "lucide-react"
 
 // ---------------------------------- Utils ----------------------------------
 function getBaseUrl() {
@@ -479,14 +480,194 @@ function WorkshopEditDialog({
   )
 }
 
+// ---------------------------------- Payments Dialog (חדש) ----------------------------------
+function PaymentsDialog({
+  open, onClose, registration, onChanged
+}: {
+  open: boolean
+  onClose: () => void
+  registration: { id: string, full_name: string, seats: number, price?: number }
+  onChanged: () => void
+}) {
+  const [loading, setLoading] = useState(false)
+  const [rows, setRows] = useState<any[]>([])
+  const [amount, setAmount] = useState<number>(0)
+  const [method, setMethod] = useState<'none'|'cash'|'card'|'transfer'|'other'>('none')
+  const [note, setNote] = useState<string>("")
+  const [busy, setBusy] = useState(false)
+  const [err, setErr] = useState<string>("")
+
+  const load = async () => {
+    setLoading(true)
+    try {
+      const r = await fetch(`/api/admin/registrations/${registration.id}/payments`)
+      const j = await r.json()
+      setRows(j.data || [])
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  useEffect(() => {
+    if (open) {
+      setErr("")
+      load()
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open, registration?.id])
+
+  const addPayment = async () => {
+    setBusy(true); setErr("")
+    try {
+      const body: any = {
+        amount: Math.max(0, Math.floor(Number(amount || 0))),
+        method: method === 'none' ? null : method,
+        note: note || null
+      }
+      const r = await fetch(`/api/admin/registrations/${registration.id}/payments`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body)
+      })
+      const j = await r.json().catch(()=> ({}))
+      if (!r.ok || j.error) throw new Error(j.error || 'שגיאה בהוספת תשלום')
+      setAmount(0); setMethod('none'); setNote("")
+      await load()
+      await onChanged() // מרענן amount_paid/paid בטבלת הרישומים
+    } catch (e:any) {
+      setErr(e?.message || 'שגיאה')
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  const removePayment = async (pid: string) => {
+    setBusy(true); setErr("")
+    try {
+      const r = await fetch(`/api/admin/registrations/${registration.id}/payments/${pid}`, { method: 'DELETE' })
+      const j = await r.json().catch(()=> ({}))
+      if (!r.ok || j.error) throw new Error(j.error || 'שגיאה במחיקה')
+      await load()
+      await onChanged()
+    } catch (e:any) {
+      setErr(e?.message || 'שגיאה')
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  const total = (registration?.price ?? 0) * (registration?.seats ?? 1)
+  const sumPaid = rows.reduce((s, p) => s + Number(p.amount || 0), 0)
+
+  return (
+    <Dialog open={open} onOpenChange={(v)=> v ? null : onClose()}>
+      <DialogContent className="sm:max-w-2xl">
+        <DialogHeader>
+          <DialogTitle>תשלומים – {registration.full_name}</DialogTitle>
+          <DialogDescription className="text-xs">
+            ניהול היסטוריית תשלומים להרשמה. סכום כולל (משוער): {total || '—'} ₪
+          </DialogDescription>
+        </DialogHeader>
+
+        <div className="space-y-4">
+          {/* טבלת תשלומים */}
+          <div className="rounded-md border">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead className="text-right">תאריך</TableHead>
+                  <TableHead className="text-right">סכום (ש"ח)</TableHead>
+                  <TableHead className="text-right">שיטה</TableHead>
+                  <TableHead className="text-right">מקור</TableHead>
+                  <TableHead className="text-right">הערה</TableHead>
+                  <TableHead className="text-right">פעולות</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {loading ? (
+                  <TableRow><TableCell colSpan={6} className="text-center text-muted-foreground">טוען…</TableCell></TableRow>
+                ) : rows.length === 0 ? (
+                  <TableRow><TableCell colSpan={6} className="text-center text-muted-foreground">אין תשלומים עדיין.</TableCell></TableRow>
+                ) : (
+                  rows.map(p => (
+                    <TableRow key={p.id}>
+                      <TableCell className="text-right">{new Date(p.created_at).toLocaleString('he-IL')}</TableCell>
+                      <TableCell className="text-right">{p.amount}</TableCell>
+                      <TableCell className="text-right">{p.method ?? '—'}</TableCell>
+                      <TableCell className="text-right">{p.source}</TableCell>
+                      <TableCell className="text-right">{p.note ?? '—'}</TableCell>
+                      <TableCell className="text-right">
+                        <Button variant="ghost" size="icon" onClick={()=>removePayment(p.id)} disabled={busy} title="מחק">
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
+                      </TableCell>
+                    </TableRow>
+                  ))
+                )}
+                {rows.length > 0 && (
+                  <TableRow>
+                    <TableCell className="text-right font-medium">סה״כ שולם</TableCell>
+                    <TableCell className="text-right font-medium">{sumPaid}</TableCell>
+                    <TableCell colSpan={4}></TableCell>
+                  </TableRow>
+                )}
+              </TableBody>
+            </Table>
+          </div>
+
+          {/* הוספת תשלום */}
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-3 items-end">
+            <div className="space-y-1">
+              <Label className="font-semibold">סכום (ש"ח)</Label>
+              <Input type="number" min={1} value={amount} onChange={e => setAmount(Math.max(0, Math.floor(Number(e.target.value || 0))))} />
+            </div>
+            <div className="space-y-1">
+              <Label className="font-semibold">שיטה</Label>
+              <Select value={method} onValueChange={(v:any)=> setMethod(v)}>
+                <SelectTrigger><SelectValue placeholder="בחר שיטה" /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="none">—</SelectItem>
+                  <SelectItem value="cash">מזומן</SelectItem>
+                  <SelectItem value="card">אשראי</SelectItem>
+                  <SelectItem value="transfer">העברה/ביט</SelectItem>
+                  <SelectItem value="other">אחר</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="md:col-span-2 space-y-1">
+              <Label className="font-semibold">הערה</Label>
+              <Input placeholder="למשל: שולם באירוע" value={note} onChange={e => setNote(e.target.value)} />
+            </div>
+            <div className="md:col-span-4 flex justify-end">
+              <Button onClick={addPayment} disabled={busy || amount <= 0}>
+                {busy ? "מוסיף…" : "הוסף תשלום"}
+              </Button>
+            </div>
+          </div>
+
+          {err && <Alert variant="destructive"><AlertDescription>{err}</AlertDescription></Alert>}
+        </div>
+
+        <div className="flex justify-end gap-2 pt-2">
+          <Button variant="secondary" onClick={onClose}>סגור</Button>
+        </div>
+      </DialogContent>
+    </Dialog>
+  )
+}
+
 // ---------------------------------- Registrations Table ----------------------------------
 function RegistrationsBlock() {
   const [rows, setRows] = useState<any[]>([])
   const [busyId, setBusyId] = useState<string | null>(null)
 
-  // מצב עריכה: מזהה הרשומה שנערכת + טיוטה לערכים
+  // מצב עריכה
   const [editId, setEditId] = useState<string | null>(null)
   const [draft, setDraft] = useState<any>({})
+
+  // מצב דיאלוג תשלומים
+  const [paymentsOpen, setPaymentsOpen] = useState(false)
+  const [paymentsReg, setPaymentsReg] = useState<{ id: string, full_name: string, seats: number, price?: number } | null>(null)
 
   const load = async () => {
     const r = await fetch('/api/admin/registrations')
@@ -500,7 +681,7 @@ function RegistrationsBlock() {
     setDraft({
       seats: r.seats,
       paid: !!r.paid,
-      amount_paid: r.amount_paid ?? 0,              // ⬅️ חדש
+      amount_paid: r.amount_paid ?? 0,
       payment_method: r.payment_method ?? "none",
       status: r.status,
       payment_link: r.payment_link ?? "",
@@ -519,7 +700,7 @@ function RegistrationsBlock() {
         paid: Boolean(draft.paid),
         amount_paid: Number.isFinite(Number(draft.amount_paid))
           ? Math.max(0, Math.floor(Number(draft.amount_paid)))
-          : 0,                                       // ⬅️ חדש
+          : 0,
         status: draft.status,
         payment_method: draft.payment_method === "none" ? null : draft.payment_method,
         payment_link: draft.payment_link || null,
@@ -549,10 +730,9 @@ function RegistrationsBlock() {
     }
   }
 
-  // עוזר להצגה: אם ה-API מחזיר גם price/workshop_price נחשב total; אחרת נציג חלקית X בלבד
   const renderPaidCell = (r: any) => {
     const amount = Number(r.amount_paid ?? 0)
-    const pricePerSeat = Number(r.workshop_price ?? r.price ?? NaN) // אם ה-API שלך מצרף מחיר סדנה לכל רשומה
+    const pricePerSeat = Number(r.workshop_price ?? r.price ?? NaN) // אם ה-API מחזיר מחיר סדנה על כל שורה
     const seats = Number(r.seats ?? 1)
 
     if (Number.isFinite(pricePerSeat)) {
@@ -561,18 +741,27 @@ function RegistrationsBlock() {
       if (amount > 0) return `חלקית ${amount}/${total}`
       return 'לא'
     } else {
-      // בלי מחיר סדנה
       if (r.paid) return 'כן'
       if (amount > 0) return `חלקית ${amount}`
       return 'לא'
     }
   }
 
+  const openPayments = (r: any) => {
+    setPaymentsReg({
+      id: r.id,
+      full_name: r.full_name,
+      seats: r.seats,
+      price: r.workshop_price ?? r.price ?? undefined
+    })
+    setPaymentsOpen(true)
+  }
+
   return (
     <Card className="border border-line">
       <CardHeader>
         <CardTitle>רישומים אחרונים</CardTitle>
-        <CardDescription>ערוך כמות, סטטוס ותשלום רק לאחר לחיצה על “עריכה”</CardDescription>
+        <CardDescription>ערוך כמות, סטטוס ותשלום; נהל תשלומים נפרדים לכל רישום</CardDescription>
       </CardHeader>
       <CardContent>
         <div className="overflow-x-auto">
@@ -586,7 +775,7 @@ function RegistrationsBlock() {
                 <TableHead className="text-right">מזהה חיצוני</TableHead>
                 <TableHead className="text-right">כמות</TableHead>
                 <TableHead className="text-right">שולם</TableHead>
-                <TableHead className="text-right">שולם בפועל (ש"ח)</TableHead> {/* ⬅️ חדש */}
+                <TableHead className="text-right">שולם בפועל (ש"ח)</TableHead>
                 <TableHead className="text-right">שיטת תשלום</TableHead>
                 <TableHead className="text-right">סטטוס</TableHead>
                 <TableHead className="text-right">תאריך</TableHead>
@@ -637,7 +826,7 @@ function RegistrationsBlock() {
                       )}
                     </TableCell>
 
-                    {/* שולם (מצב כולל) */}
+                    {/* שולם (כולל/חלקית/לא) */}
                     <TableCell className="text-right">
                       {isEdit ? (
                         <Switch
@@ -648,7 +837,7 @@ function RegistrationsBlock() {
                       ) : renderPaidCell(r)}
                     </TableCell>
 
-                    {/* שולם בפועל (ש"ח) — עריך/הצג */}
+                    {/* שולם בפועל */}
                     <TableCell className="text-right">
                       {isEdit ? (
                         <Input
@@ -718,10 +907,12 @@ function RegistrationsBlock() {
                       {new Date(r.created_at).toLocaleString('he-IL')}
                     </TableCell>
 
+                    {/* פעולות */}
                     <TableCell className="text-right">
                       {!isEdit ? (
                         <div className="flex items-center gap-2 justify-end">
                           <Button variant="secondary" onClick={() => startEdit(r)}>עריכה</Button>
+                          <Button variant="outline" onClick={() => openPayments(r)}>תשלומים</Button>
                           <AlertDialog>
                             <AlertDialogTrigger asChild>
                               <Button variant="ghost" className="text-red-600 hover:text-red-700" disabled={busyId === r.id}>מחיקה</Button>
@@ -761,6 +952,16 @@ function RegistrationsBlock() {
           </Table>
         </div>
       </CardContent>
+
+      {/* דיאלוג תשלומים */}
+      {paymentsReg && (
+        <PaymentsDialog
+          open={paymentsOpen}
+          onClose={()=> setPaymentsOpen(false)}
+          registration={paymentsReg}
+          onChanged={load}
+        />
+      )}
     </Card>
   )
 }
