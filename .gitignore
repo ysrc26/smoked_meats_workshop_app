@@ -1,0 +1,42 @@
+node_modules
+# Dependencies
+node_modules/
+# Build output
+.next/
+# Logs
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+# Environment variables
+.env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+# Next.js cache
+.next/cache/
+# Static files
+out/
+# TypeScript cache
+*.tsbuildinfo
+# IDE files
+.vscode/
+.idea/
+# MacOS files
+.DS_Store
+# Linux files
+*~
+# Windows files
+Thumbs.db
+# Coverage reports
+coverage/
+# Miscellaneous
+*.log
+*.lock
+*.swp
+# Build artifacts
+dist/
+# Temporary files
+tmp/
+# Next.js build output
+.next/
