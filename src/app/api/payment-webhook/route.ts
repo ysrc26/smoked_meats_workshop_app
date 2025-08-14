@@ -37,15 +37,14 @@ export async function POST(req: NextRequest) {
 
   // סכום בש"ח (מחרוזת), נהפוך ל-agorot
   const paymentSumStr: string = String(data?.sum ?? '').replace(',', '.').trim()
-  const amount_cents = Number.isFinite(Number(paymentSumStr))
-    ? Math.round(Number(paymentSumStr) * 100)
-    : NaN
+  const amount_nis = Number(paymentSumStr)
+
 
   if (!email && !phoneDigits) {
     console.error('payment-webhook: missing email/phone in payload')
     return NextResponse.json({ ok: false, error: 'missing email/phone' }, { status: 200 })
   }
-  if (!Number.isFinite(amount_cents)) {
+  if (!Number.isFinite(amount_nis)) {
     console.error('payment-webhook: missing/invalid sum', { sum: data?.sum })
     return NextResponse.json({ ok: false, error: 'missing or invalid sum' }, { status: 200 })
   }
@@ -123,35 +122,35 @@ export async function POST(req: NextRequest) {
     // --- אימות סכום מול מחיר הסדנה × כמות ---
     // נשלוף את price_cents של הסדנה
     const { data: workshop, error: wErr } = await supabaseAdmin
-      .from('workshops')
-      .select('price_cents, title')
-      .eq('id', chosen.workshop_id)
-      .single()
+  .from('workshops')
+  .select('price_nis, title')
+  .eq('id', chosen.workshop_id)
+  .single()
 
-    if (wErr || !workshop || typeof workshop.price_cents !== 'number') {
+    if (wErr || !workshop || typeof workshop.price_nis !== 'number') {
       console.error('payment-webhook: workshop price not found', { workshop_id: chosen.workshop_id, wErr })
       return NextResponse.json({ ok: false, error: 'workshop price not found' }, { status: 200 })
     }
 
-    const expected_cents = Number(workshop.price_cents) * Number(chosen.seats)
-    if (amount_cents !== expected_cents) {
-      console.warn('payment-webhook: amount mismatch', {
-        expected_cents, amount_cents, price_cents: workshop.price_cents, seats: chosen.seats
-      })
-      return NextResponse.json({
-        ok: false,
-        error: 'amount mismatch',
-        expected: expected_cents / 100,
-        got: amount_cents / 100
-      }, { status: 200 })
-    }
+    const expected_nis = Number(workshop.price_nis) * Number(chosen.seats)
+if (amount_nis !== expected_nis) {
+  console.warn('payment-webhook: amount mismatch', {
+    expected_nis, amount_nis, price_nis: workshop.price_nis, seats: chosen.seats
+  })
+  return NextResponse.json({
+    ok: false,
+    error: 'amount mismatch',
+    expected: expected_nis,
+    got: amount_nis
+  }, { status: 200 })
+}
 
     // --- עדכון הרשומה שנבחרה (אחרי אימות הסכום) ---
     const update: Record<string, any> = { paid: true }
     if (external_payment_id) update.external_payment_id = String(external_payment_id)
 
     // מיפוי אמצעי תשלום מה-grow לערכים המותרים ב-DB
-    function mapGrowPaymentMethod(v: string): 'cash'|'card'|'transfer'|'other'|null {
+    function mapGrowPaymentMethod(v: string): 'cash' | 'card' | 'transfer' | 'other' | null {
       const s = (v || '').toString().trim().toLowerCase()
       if (s === '2' || s === 'card' || s === 'credit' || s === 'creditcard') return 'card'
       if (s === '1' || s === 'cash') return 'cash'
@@ -180,8 +179,8 @@ export async function POST(req: NextRequest) {
       email: wantedEmail,
       phone: wantedDigits,
       external_payment_id,
-      amount_cents,
-      expected_cents
+      amount_nis,
+      expected_nis
     })
 
     return NextResponse.json({ ok: true, registration_id: chosen.id }, { status: 200 })
