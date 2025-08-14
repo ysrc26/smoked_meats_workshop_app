@@ -122,28 +122,28 @@ export async function POST(req: NextRequest) {
     // --- אימות סכום מול מחיר הסדנה × כמות ---
     // נשלוף את price_cents של הסדנה
     const { data: workshop, error: wErr } = await supabaseAdmin
-  .from('workshops')
-  .select('price_nis, title')
-  .eq('id', chosen.workshop_id)
-  .single()
+      .from('workshops')
+      .select('price, title')
+      .eq('id', chosen.workshop_id)
+      .single()
 
-    if (wErr || !workshop || typeof workshop.price_nis !== 'number') {
+    if (wErr || !workshop || typeof workshop.price !== 'number') {
       console.error('payment-webhook: workshop price not found', { workshop_id: chosen.workshop_id, wErr })
       return NextResponse.json({ ok: false, error: 'workshop price not found' }, { status: 200 })
     }
 
-    const expected_nis = Number(workshop.price_nis) * Number(chosen.seats)
-if (amount_nis !== expected_nis) {
-  console.warn('payment-webhook: amount mismatch', {
-    expected_nis, amount_nis, price_nis: workshop.price_nis, seats: chosen.seats
-  })
-  return NextResponse.json({
-    ok: false,
-    error: 'amount mismatch',
-    expected: expected_nis,
-    got: amount_nis
-  }, { status: 200 })
-}
+    const expected_nis = Number(workshop.price) * Number(chosen.seats)
+    if (amount_nis !== expected_nis) {
+      console.warn('payment-webhook: amount mismatch', {
+        expected_nis, amount_nis, price: workshop.price, seats: chosen.seats
+      })
+      return NextResponse.json({
+        ok: false,
+        error: 'amount mismatch',
+        expected: expected_nis,
+        got: amount_nis
+      }, { status: 200 })
+    }
 
     // --- עדכון הרשומה שנבחרה (אחרי אימות הסכום) ---
     const update: Record<string, any> = { paid: true }

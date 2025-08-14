@@ -28,13 +28,13 @@ export async function GET() {
 export async function POST(req: NextRequest) {
   if (!(await isAdmin())) return NextResponse.json({ error: 'unauthorized' }, { status: 401 })
   const body = await req.json()
-  const { title, description, event_at, capacity, price_cents, payment_link, is_active } = body
-  if (!title || !event_at || !capacity || price_cents === undefined) {
+  const { title, description, event_at, capacity, price, payment_link, is_active } = body
+  if (!title || !event_at || !capacity || price === undefined) {
     return NextResponse.json({ error: 'נתונים חסרים' }, { status: 400 })
   }
   const { data, error } = await supabaseAdmin
     .from('workshops')
-    .insert({ title, description, event_at, capacity, price_cents, payment_link, is_active: is_active ?? true })
+    .insert({ title, description, event_at, capacity, price, payment_link, is_active: is_active ?? true })
     .select('*')
     .single()
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })

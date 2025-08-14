@@ -1,3 +1,4 @@
+// src/app/admin/page.tsx
 'use client'
 import { useEffect, useState } from 'react'
 
@@ -151,7 +152,7 @@ function WorkshopForm({ onCreated }: { onCreated: () => void }) {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           title, description, event_at, capacity,
-          price_nis: price, payment_link: paymentLink || null,
+          price, payment_link: paymentLink || null,
           is_active: active, is_public: isPublic,
         }),
       })
@@ -372,7 +373,7 @@ function WorkshopEditDialog({
   const [date, setDate] = useState(() => new Date(w.event_at).toISOString().slice(0, 10))
   const [time, setTime] = useState(() => new Date(w.event_at).toTimeString().slice(0, 5))
   const [capacity, setCapacity] = useState<number>(w.capacity ?? 0)
-  const [price, setPrice] = useState<number>(w.price_cents ?? 0)
+  const [price, setPrice] = useState<number>(w.price ?? 0)
   const [isPublic, setIsPublic] = useState(!!w.is_public)
   const [paymentLink, setPaymentLink] = useState<string>(w.payment_link ?? "")
   const [copiedShare, setCopiedShare] = useState(false)
@@ -387,7 +388,7 @@ function WorkshopEditDialog({
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          title, description, event_at, capacity, price_cents: price,
+          title, description, event_at, capacity, price,
           payment_link: paymentLink || null, is_public: isPublic
         })
 
@@ -445,7 +446,7 @@ function WorkshopEditDialog({
             <Input type="number" min={1} value={capacity} onChange={e => setCapacity(Number(e.target.value || 0))} />
           </div>
           <div className="space-y-2">
-            <Label className="font-semibold">מחיר (אגורות)</Label>
+            <Label className="font-semibold">מחיר (ש"ח)</Label>
             <Input type="number" min={0} value={price} onChange={e => setPrice(Number(e.target.value || 0))} />
           </div>
           <div className="flex items-center gap-3">
