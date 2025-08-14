@@ -22,16 +22,24 @@ type Props = {
   onSuccess?: () => Promise<void> | void
 }
 
-type Errors = Partial<Record<"fullName"|"email"|"phone"|"seats"|"form", string>>
+type Errors = Partial<Record<"fullName" | "email" | "phone" | "seats" | "form", string>>
 
 const isEmail = (s: string) =>
   /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(s.trim())
 
-// ישראלי: 05X-XXXXXXX, מאפשר מקפים/רווחים | בינ"ל פשוט עם +
-const isPhone = (s: string) => {
-  const t = s.trim()
-  return /^(\+?\d[\d\s-]{7,15})$/.test(t) || /^0?5\d[-]?\d{7}$/.test(t)
+// --- Phone helpers (IL) ---
+const onlyDigits = (s: string) => s.replace(/\D+/g, "")
+const formatILMobile = (digits: string) => {
+  // מגביל ל-10 ספרות ומכניס מקף אחרי 3
+  const d = onlyDigits(digits).slice(0, 10)
+  if (d.length <= 3) return d
+  return `${d.slice(0, 3)}-${d.slice(3)}`
 }
+const isILMobileValid = (formatted: string) => {
+  // בדיוק "05X-XXXXXXX"
+  return /^05\d-\d{7}$/.test(formatted)
+}
+
 
 export default function RegistrationDialog({
   open, onClose, workshop, onSuccess
@@ -69,7 +77,8 @@ export default function RegistrationDialog({
     else if (!isEmail(email)) next.email = "אימייל לא תקין"
 
     if (!phone.trim()) next.phone = "חובה להזין טלפון"
-    else if (!isPhone(phone)) next.phone = "טלפון לא תקין"
+    else if (!isILMobileValid(phone)) next.phone = "מספר לא תקין. מבנה: 05X-XXXXXXX"
+
 
     if (!Number.isFinite(seats) || seats < 1) next.seats = "כמות חייבת להיות מספר שלם ≥ 1"
     else if (maxSeats > 0 && seats > maxSeats) next.seats = `אין מספיק מקומות. מקסימום ${maxSeats}`
@@ -94,7 +103,7 @@ export default function RegistrationDialog({
           workshop_id: workshop.id,
           full_name: fullName.trim(),
           email: email.trim(),
-          phone: phone.trim(),
+          phone: phone.replace("-", ""), // מסיר מקף
           seats
         })
       })
@@ -115,7 +124,7 @@ export default function RegistrationDialog({
   const disabledByCapacity = maxSeats <= 0
 
   return (
-    <Dialog open={open} onOpenChange={(v)=>{ if(!v) onClose() }}>
+    <Dialog open={open} onOpenChange={(v) => { if (!v) onClose() }}>
       <DialogContent className="sm:max-w-lg">
         <DialogHeader>
           <DialogTitle>הרשמה: {workshop?.title}</DialogTitle>
@@ -131,7 +140,7 @@ export default function RegistrationDialog({
               <Input
                 id="fullName"
                 value={fullName}
-                onChange={(e)=>setFullName(e.target.value)}
+                onChange={(e) => setFullName(e.target.value)}
                 placeholder="שם מלא"
                 aria-invalid={Boolean(err.fullName)}
                 disabled={disabledByCapacity}
@@ -146,7 +155,7 @@ export default function RegistrationDialog({
                   id="email"
                   type="email"
                   value={email}
-                  onChange={(e)=>setEmail(e.target.value)}
+                  onChange={(e) => setEmail(e.target.value)}
                   placeholder="name@example.com"
                   aria-invalid={Boolean(err.email)}
                   disabled={disabledByCapacity}
@@ -158,8 +167,15 @@ export default function RegistrationDialog({
                 <Input
                   id="phone"
                   value={phone}
-                  onChange={(e)=>setPhone(e.target.value)}
-                  placeholder="050-0000000"
+                  onChange={(e) => setPhone(formatILMobile(e.target.value))}
+                  onPaste={(e) => {
+                    e.preventDefault()
+                    const text = e.clipboardData.getData("text")
+                    setPhone(formatILMobile(text))
+                  }}
+                  inputMode="numeric"
+                  pattern="\d*"
+                  placeholder="05X-XXXXXXX"
                   aria-invalid={Boolean(err.phone)}
                   disabled={disabledByCapacity}
                 />
@@ -175,7 +191,7 @@ export default function RegistrationDialog({
                 min={1}
                 max={Math.max(1, maxSeats || 1)}
                 value={seats}
-                onChange={(e)=>setSeats(Math.max(1, Math.floor(Number(e.target.value || 1))))}
+                onChange={(e) => setSeats(Math.max(1, Math.floor(Number(e.target.value || 1))))}
                 aria-invalid={Boolean(err.seats)}
                 disabled={disabledByCapacity}
               />
