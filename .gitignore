@@ -40,3 +40,6 @@ dist/
 tmp/
 # Next.js build output
 .next/
+# vercel
+.vercel/
+.vercel
