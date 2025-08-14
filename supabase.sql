@@ -67,6 +67,18 @@ begin
   end if;
 end$$;
 
+do $$
+begin
+  if not exists (
+    select 1
+    from information_schema.columns
+    where table_schema='public' and table_name='registrations' and column_name='payment_link'
+  ) then
+    alter table public.registrations
+      add column payment_link text;
+  end if;
+end$$;
+
 -- =========================================================
 -- View (שומר על השם/העמודות כדי להימנע משגיאת rename)
 -- =========================================================
