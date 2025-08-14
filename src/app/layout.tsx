@@ -5,13 +5,16 @@ export const metadata: Metadata = {
   title: "המעשנה בחצר — סדנאות בשרים",
   description: "ניהול ורישום לסדנאות",
   icons: {
-    icon: "@/src/app/favicon.ico",
+    icon: "/favicon.ico",
   },
 }
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="he" dir="rtl">
+      <head>
+        <link rel="icon" href="/favicon.ico" />
+      </head>
       <body className="min-h-dvh bg-background text-foreground">
         <div className="container py-8">
           {children}
