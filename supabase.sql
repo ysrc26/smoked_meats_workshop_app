@@ -21,6 +21,7 @@ create table if not exists public.registrations (
   status text not null default 'pending' check (status in ('pending','confirmed','cancelled')),
   paid boolean not null default false,
   payment_link text,
+  payment_method text,
   external_payment_id text,
   created_at timestamptz not null default now()
 );
