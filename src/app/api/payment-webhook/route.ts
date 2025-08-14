@@ -1,109 +1,100 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabaseAdmin'
-import { createHmac } from 'crypto'
 import { getStatusAfterPaid } from '@/lib/status'
 
+/**
+ * Webhook פתוח: אין צורך בחתימות/כותרות אימות.
+ * מצופה לקבל אובייקט JSON מהספק (grow) עם registration_id איפשהו בגוף.
+ * תומך במבנים שונים: metadata.registration_id / registration_id / external_id וכו'.
+ */
 export async function POST(req: NextRequest) {
-  const rawBody = await req.text()
-  const secret = process.env.PAYMENT_WEBHOOK_SECRET
-  const signature = req.headers.get('x-webhook-signature')
-  const headerSecret = req.headers.get('x-webhook-secret')
-
-  console.info('Incoming payment webhook', {
-    hasSignature: Boolean(signature),
-    hasHeaderSecret: Boolean(headerSecret),
-    body: rawBody,
-  })
-
-  if (!secret) {
-    console.error('PAYMENT_WEBHOOK_SECRET is not set')
-    return NextResponse.json({ error: 'server misconfigured' }, { status: 500 })
-  }
-
-  if (signature) {
-    const expected = createHmac('sha256', secret).update(rawBody).digest('hex')
-    if (signature !== expected) {
-      console.error('Invalid webhook signature')
-      return NextResponse.json({ error: 'unauthorized' }, { status: 401 })
-    }
-  } else if (headerSecret !== secret) {
-    console.error('Invalid webhook secret header')
-    return NextResponse.json({ error: 'unauthorized' }, { status: 401 })
-  }
-
-  let body: Record<string, any>
+  let body: any
   try {
-    body = JSON.parse(rawBody)
+    body = await req.json()
   } catch (err) {
-    console.error('Invalid JSON payload', err)
+    console.error('payment-webhook: invalid json', err)
     return NextResponse.json({ error: 'invalid json' }, { status: 400 })
   }
 
+  // ----- חילוץ מזהים/שדות שימושיים במבנים שונים -----
   const registration_id =
-    body?.metadata?.registration_id || body?.registration_id || body?.external_id
+    body?.metadata?.registration_id ??
+    body?.data?.metadata?.registration_id ??
+    body?.registration_id ??
+    body?.external_id ??
+    body?.order_id ??
+    body?.data?.order_id ??
+    null
+
   if (!registration_id) {
-    console.error('Missing registration id')
-    return NextResponse.json({ error: 'missing id' }, { status: 400 })
+    console.error('payment-webhook: missing registration_id', { bodyKeys: Object.keys(body || {}) })
+    // נחזיר 200 כדי לא לגרום לריטריים אינסופיים אצל ספקים מסוימים, אבל נסמן שגיאה לוגית
+    return NextResponse.json({ ok: false, error: 'missing registration_id' }, { status: 200 })
   }
 
   const external_payment_id =
-    body?.data?.transactionId ||
-    body?.transactionId ||
-    body?.id ||
-    body?.external_payment_id
-  const payment_method = body?.payment_method || body?.method
+    body?.data?.transactionId ??
+    body?.transactionId ??
+    body?.id ??
+    body?.external_payment_id ??
+    body?.payment_id ??
+    null
+
+  const payment_method =
+    body?.payment_method ??
+    body?.method ??
+    body?.data?.method ??
+    null
 
   try {
-    // שלב חדש מ-main: קבלת הסטטוס הקיים
+    // שולפים את הסטטוס/paid הנוכחיים כדי לעשות עדכון אידמפוטנטי
     const { data: reg, error: fetchErr } = await supabaseAdmin
       .from('registrations')
-      .select('status')
+      .select('id, status, paid')
       .eq('id', registration_id)
       .single()
 
     if (fetchErr || !reg) {
-      return NextResponse.json(
-        { error: fetchErr?.message || 'not found' },
-        { status: fetchErr ? 500 : 404 }
-      )
+      console.error('payment-webhook: registration not found', { registration_id, fetchErr })
+      // החזרה 200 כדי לאגרסיביות ריטריי מצד ספק, אבל מסמנים שלא עודכן
+      return NextResponse.json({ ok: false, error: 'registration not found', registration_id }, { status: 200 })
     }
 
-    // בניית עדכון
-    const update: Record<string, any> = {
-      paid: true,
-      ...(external_payment_id && { external_payment_id }),
-      ...(payment_method && { payment_method }),
+    const update: Record<string, any> = {}
+
+    // אם כבר מסומן כמשולם, לא נכשל — פשוט מחזירים ok
+    if (!reg.paid) update.paid = true
+
+    // עדכוני עזר אם קיימים
+    if (external_payment_id) update.external_payment_id = String(external_payment_id)
+    if (payment_method) update.payment_method = String(payment_method)
+
+    // עדכון סטטוס חכם על בסיס המצב הקודם
+    const nextStatus = getStatusAfterPaid(true, reg.status)
+    if (nextStatus !== reg.status) update.status = nextStatus
+
+    if (Object.keys(update).length === 0) {
+      // אין מה לעדכן (כנראה כבר paid/confirmed)
+      console.info('payment-webhook: nothing to update (idempotent)', { registration_id })
+      return NextResponse.json({ ok: true, registration_id, idempotent: true }, { status: 200 })
     }
 
-    const status = getStatusAfterPaid(true, reg.status)
-    if (status !== reg.status) update.status = status
-
-    const { error } = await supabaseAdmin
+    const { error: updErr } = await supabaseAdmin
       .from('registrations')
       .update(update)
       .eq('id', registration_id)
 
-    if (error) {
-      console.error('Error updating registration', {
-        registration_id,
-        error,
-      })
-      return NextResponse.json(
-        { error: error.message, registration_id },
-        { status: 500 }
-      )
+    if (updErr) {
+      console.error('payment-webhook: update failed', { registration_id, update, updErr })
+      // מחזירים 200 כדי למנוע ריטריים אין-סופיים — אפשר לשנות ל-500 אם תרצה שהספק ינסה שוב
+      return NextResponse.json({ ok: false, error: updErr.message, registration_id }, { status: 200 })
     }
-  } catch (err: any) {
-    console.error('Unexpected error updating registration', {
-      registration_id,
-      err,
-    })
-    return NextResponse.json(
-      { error: 'server error', details: err.message, registration_id },
-      { status: 500 }
-    )
-  }
 
-  console.info('Registration marked as paid', { registration_id })
-  return NextResponse.json({ ok: true, registration_id }, { status: 200 })
+    console.info('payment-webhook: updated', { registration_id, update })
+    return NextResponse.json({ ok: true, registration_id }, { status: 200 })
+  } catch (err: any) {
+    console.error('payment-webhook: unexpected error', { registration_id, err })
+    // גם כאן נשיב 200 כדי לא לייצר הצפות ריטריים — שיקול מוצרי
+    return NextResponse.json({ ok: false, error: 'server error', details: err?.message, registration_id }, { status: 200 })
+  }
 }
