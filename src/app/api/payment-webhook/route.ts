@@ -18,22 +18,28 @@ export async function POST(req: NextRequest) {
     console.error('payment-webhook: invalid json', err)
     return NextResponse.json({ ok: false, error: 'invalid json' }, { status: 200 })
   }
+  // חלק מהסביבות של Grow מחזירות מערך עם אובייקט יחיד
   const root = Array.isArray(raw) ? raw[0] : raw
   const data = root?.data ?? root ?? {}
 
-  // --- Extract fields from grow payload ---
+  // --- Extract fields from Grow PaymentLinks ---
   const external_payment_id =
     data?.transactionId ?? data?.paymentId ?? data?.id ?? null
 
-  // בשני הצדדים האימייל/טלפון חובה — ננקה ונאחיד
   const email = (data?.payerEmail ?? data?.email ?? '').trim().toLowerCase()
   const phoneRaw = (data?.payerPhone ?? data?.phone ?? '').trim()
-
   const onlyDigits = (s: string) => s.replace(/\D+/g, '')
   const phoneDigits = onlyDigits(phoneRaw)
-  // הפורמט אצלנו בטופס: 05X-XXXXXXX; נשמור גם גרסה עם מקף למקרה שה-DB שומר עם מקף
-  const phoneDashed =
-    phoneDigits.length === 10 ? `${phoneDigits.slice(0, 3)}-${phoneDigits.slice(3)}` : ''
+  const phoneDashed = phoneDigits.length === 10 ? `${phoneDigits.slice(0, 3)}-${phoneDigits.slice(3)}` : ''
+
+  // נאכוף תשלום מוצלח בלבד
+  const statusTxt: string = String(data?.status ?? '')
+  const statusCode: string = String(data?.statusCode ?? '')
+  const isPaid = statusCode === '2' || statusTxt === 'שולם'
+  if (!isPaid) {
+    console.warn('payment-webhook: payment is not marked as paid', { statusTxt, statusCode })
+    return NextResponse.json({ ok: false, error: 'not paid' }, { status: 200 })
+  }
 
   if (!email && !phoneDigits) {
     console.error('payment-webhook: missing email/phone in payload')
@@ -126,9 +132,18 @@ export async function POST(req: NextRequest) {
     // --- עדכון הרשומה שנבחרה ---
     const update: Record<string, any> = { paid: true }
     if (external_payment_id) update.external_payment_id = String(external_payment_id)
-    // ניסיון לזהות שיטת תשלום אם קיימת
-    const pm = String(data?.paymentType ?? data?.method ?? '')
-    if (pm) update.payment_method = pm
+
+    // מיפוי אמצעי תשלום של Grow לערכים המאושרים בטבלה
+    function mapGrowPaymentMethod(v: string): 'cash' | 'card' | 'transfer' | 'other' | null {
+      const s = (v || '').toString().trim().toLowerCase()
+      if (s === '2' || s === 'card' || s === 'credit' || s === 'creditcard') return 'card'
+      if (s === '1' || s === 'cash') return 'cash'
+      if (s === '3' || s === 'bank' || s === 'transfer') return 'transfer'
+      if (!s) return null
+      return 'other'
+    }
+    const pmMapped = mapGrowPaymentMethod(String(data?.paymentType ?? data?.method ?? ''))
+    if (pmMapped) update.payment_method = pmMapped
 
     const nextStatus = getStatusAfterPaid(true, chosen.status)
     if (nextStatus !== chosen.status) update.status = nextStatus
