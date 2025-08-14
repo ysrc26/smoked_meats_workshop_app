@@ -46,7 +46,11 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'missing id' }, { status: 400 })
   }
 
-  const external_payment_id = body?.id || body?.external_payment_id
+  const external_payment_id =
+    body?.data?.transactionId ||
+    body?.transactionId ||
+    body?.id ||
+    body?.external_payment_id
   const payment_method = body?.payment_method || body?.method
 
   try {

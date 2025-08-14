@@ -559,6 +559,7 @@ function RegistrationsBlock() {
                 <TableHead className="text-right">אימייל</TableHead>
                 <TableHead className="text-right">טלפון</TableHead>
                 <TableHead className="text-right">קישור תשלום</TableHead>
+                <TableHead className="text-right">מזהה חיצוני</TableHead>
                 <TableHead className="text-right">כמות</TableHead>
                 <TableHead className="text-right">שולם</TableHead>
                 <TableHead className="text-right">שיטת תשלום</TableHead>
@@ -592,6 +593,9 @@ function RegistrationsBlock() {
                         )
                       )}
                     </TableCell>
+
+                    {/* מזהה תשלום חיצוני */}
+                    <TableCell className="text-right">{r.external_payment_id ?? '—'}</TableCell>
 
                     {/* כמות seats */}
                     <TableCell className="text-right">
@@ -703,7 +707,7 @@ function RegistrationsBlock() {
               })}
               {rows.length === 0 && (
                 <TableRow>
-                  <TableCell colSpan={10} className="text-center text-muted-foreground">
+                  <TableCell colSpan={11} className="text-center text-muted-foreground">
                     אין רישומים עדיין.
                   </TableCell>
                 </TableRow>
