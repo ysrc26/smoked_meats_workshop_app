@@ -501,6 +501,7 @@ function RegistrationsBlock() {
       paid: !!r.paid,
       payment_method: r.payment_method ?? "none",
       status: r.status,
+      payment_link: r.payment_link ?? "",
     })
   }
   const cancelEdit = () => {
@@ -516,6 +517,7 @@ function RegistrationsBlock() {
         paid: Boolean(draft.paid),
         status: draft.status,
         payment_method: draft.payment_method === "none" ? null : draft.payment_method,
+        payment_link: draft.payment_link || null,
       }
       const res = await fetch(`/api/admin/registrations/${id}`, {
         method: "PATCH",
@@ -556,6 +558,7 @@ function RegistrationsBlock() {
                 <TableHead className="text-right">שם</TableHead>
                 <TableHead className="text-right">אימייל</TableHead>
                 <TableHead className="text-right">טלפון</TableHead>
+                <TableHead className="text-right">קישור תשלום</TableHead>
                 <TableHead className="text-right">כמות</TableHead>
                 <TableHead className="text-right">שולם</TableHead>
                 <TableHead className="text-right">שיטת תשלום</TableHead>
@@ -572,6 +575,23 @@ function RegistrationsBlock() {
                     <TableCell className="text-right">{r.full_name}</TableCell>
                     <TableCell className="text-right">{r.email}</TableCell>
                     <TableCell className="text-right">{r.phone}</TableCell>
+
+                    {/* קישור תשלום */}
+                    <TableCell className="text-right">
+                      {isEdit ? (
+                        <Input
+                          className="w-48"
+                          value={draft.payment_link ?? ''}
+                          onChange={(e) => setDraft((d: any) => ({ ...d, payment_link: e.target.value }))}
+                        />
+                      ) : (
+                        r.payment_link ? (
+                          <a href={r.payment_link} target="_blank" rel="noreferrer" className="underline">קישור</a>
+                        ) : (
+                          '—'
+                        )
+                      )}
+                    </TableCell>
 
                     {/* כמות seats */}
                     <TableCell className="text-right">
@@ -683,7 +703,7 @@ function RegistrationsBlock() {
               })}
               {rows.length === 0 && (
                 <TableRow>
-                  <TableCell colSpan={9} className="text-center text-muted-foreground">
+                  <TableCell colSpan={10} className="text-center text-muted-foreground">
                     אין רישומים עדיין.
                   </TableCell>
                 </TableRow>

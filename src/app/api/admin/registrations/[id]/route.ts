@@ -32,6 +32,9 @@ export async function PATCH(req: Request, context: any) {
   if (typeof body.external_payment_id === 'string' || body.external_payment_id === null) {
     allowed.external_payment_id = body.external_payment_id
   }
+  if (typeof body.payment_link === 'string' || body.payment_link === null) {
+    allowed.payment_link = body.payment_link
+  }
 
   // (אופציונלי) עדכון פרטי איש קשר
   if (typeof body.full_name === 'string') allowed.full_name = body.full_name
