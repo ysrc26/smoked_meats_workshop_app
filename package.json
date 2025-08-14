@@ -9,7 +9,8 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "next lint || echo \"lint skipped\""
+    "lint": "next lint || echo \"lint skipped\"",
+    "test": "node --test -r ts-node/register"
   },
   "dependencies": {
     "@radix-ui/react-alert-dialog": "^1.1.14",
@@ -38,6 +39,7 @@
     "postcss": "8.4.38",
     "tailwindcss": "3.4.7",
     "tailwindcss-animate": "^1.0.7",
+    "ts-node": "^10.9.2",
     "typescript": "5.4.5"
   }
 }
