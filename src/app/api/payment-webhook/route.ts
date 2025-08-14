@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabaseAdmin'
 import { createHmac } from 'crypto'
+import { getStatusAfterPaid } from '@/lib/status'
 
 export async function POST(req: NextRequest) {
   const rawBody = await req.text()
@@ -36,14 +37,28 @@ export async function POST(req: NextRequest) {
   const external_payment_id = body?.id || body?.external_payment_id
   const payment_method = body?.payment_method || body?.method
 
+  const { data: reg, error: fetchErr } = await supabaseAdmin
+    .from('registrations')
+    .select('status')
+    .eq('id', registration_id)
+    .single()
+  if (fetchErr || !reg)
+    return NextResponse.json(
+      { error: fetchErr?.message || 'not found' },
+      { status: fetchErr ? 500 : 404 }
+    )
+
+  const update: Record<string, any> = {
+    paid: true,
+    ...(external_payment_id && { external_payment_id }),
+    ...(payment_method && { payment_method }),
+  }
+  const status = getStatusAfterPaid(true, reg.status)
+  if (status !== reg.status) update.status = status
+
   const { error } = await supabaseAdmin
     .from('registrations')
-    .update({
-      paid: true,
-      status: 'confirmed',
-      ...(external_payment_id && { external_payment_id }),
-      ...(payment_method && { payment_method }),
-    })
+    .update(update)
     .eq('id', registration_id)
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
