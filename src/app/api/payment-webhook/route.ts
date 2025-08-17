@@ -1,8 +1,11 @@
 // src/app/api/payment-webhook/route.ts
 import { NextRequest, NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabaseAdmin'
+import { sendEmail } from '@/lib/email'
+import { paymentConfirmed } from '@/lib/emailTemplates'
 
-function mapPaymentMethod(v: string): 'cash'|'card'|'transfer'|'other'|null {
+
+function mapPaymentMethod(v: string): 'cash' | 'card' | 'transfer' | 'other' | null {
   const s = (v || '').toString().trim().toLowerCase()
   if (!s) return null
   if (s === '2' || s === 'card' || s === 'credit' || s === 'creditcard') return 'card'
@@ -38,14 +41,14 @@ export async function POST(req: NextRequest) {
     const onlyDigits = (s: string) => s.replace(/\D+/g, '')
     const phoneDigits = onlyDigits(phoneRaw)
     const phoneDashed =
-      phoneDigits.length === 10 ? `${phoneDigits.slice(0,3)}-${phoneDigits.slice(3)}` : ''
+      phoneDigits.length === 10 ? `${phoneDigits.slice(0, 3)}-${phoneDigits.slice(3)}` : ''
 
     if (!email && !phoneDigits) {
       return NextResponse.json({ ok: false, error: 'missing email/phone' }, { status: 200 })
     }
 
     // חיפוש הרשמה מתאימה (pending && !paid, 7 ימים)
-    const sinceIso = new Date(Date.now() - 7*24*60*60*1000).toISOString()
+    const sinceIso = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString()
     const ors: string[] = []
     if (email) ors.push(`email.eq.${encodeURIComponent(email)}`)
     if (phoneDigits) {
@@ -64,8 +67,8 @@ export async function POST(req: NextRequest) {
       ors.length ? await baseQ.or(ors.join(',')) : await baseQ
     if (candErr) return NextResponse.json({ ok: false, error: 'db error' }, { status: 200 })
 
-    const norm = (s?: string|null)=> (s??'').trim().toLowerCase()
-    const normalizeDigits = (s?: string|null)=> s? s.replace(/\D+/g,''): ''
+    const norm = (s?: string | null) => (s ?? '').trim().toLowerCase()
+    const normalizeDigits = (s?: string | null) => s ? s.replace(/\D+/g, '') : ''
     const wantedEmail = norm(email)
     const wantedDigits = phoneDigits
 
@@ -107,6 +110,29 @@ export async function POST(req: NextRequest) {
       // שגיאה אמיתית (לא כפילות)
       return NextResponse.json({ ok: false, error: insErr.message }, { status: 200 })
     }
+    
+    // עדכון הרשמה
+    try {
+      // נשלוף פרטי נרשם + סדנה בסיסית כדי ליצור מייל נעים
+      const { data: info } = await supabaseAdmin
+        .from('registrations')
+        .select('full_name, email, seats, workshop:workshops(title, event_at, price)')
+        .eq('id', chosen.id)
+        .single()
+
+      const recipient = info?.email
+      if (recipient) {
+        const tpl = paymentConfirmed(info.full_name, {
+          title: info.workshop?.[0]?.title || 'הסדנה',
+          event_at: info.workshop?.[0]?.event_at || new Date(),
+          price: info.workshop?.[0]?.price
+        }, /*amount?*/ undefined)
+        await sendEmail({ to: recipient, subject: tpl.subject, html: tpl.html, text: tpl.text })
+      }
+    } catch (e) {
+      console.error('email send failed (payment)', e)
+    }
+
 
     // הטריגר יעדכן את ההרשמה אוטומטית
     return NextResponse.json({ ok: true, registration_id: chosen.id }, { status: 200 })

@@ -1,7 +1,8 @@
 // src/app/api/register/route.ts
 import { NextRequest, NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabaseAdmin'
-
+import { sendEmail } from '@/lib/email'
+import { registrationReceived } from '@/lib/emailTemplates'
 
 export async function POST(req: NextRequest) {
   const body = await req.json()
@@ -33,7 +34,7 @@ export async function POST(req: NextRequest) {
   const apiBase = process.env.PAYMENTS_API_URL?.trim()
   if (apiBase) {
     try {
-      const resp = await fetch(`${apiBase.replace(/\/+$/,'')}/links`, {
+      const resp = await fetch(`${apiBase.replace(/\/+$/, '')}/links`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -63,6 +64,22 @@ export async function POST(req: NextRequest) {
     } catch (e) {
       console.error('payment-links API call failed', e)
     }
+  }
+
+  // שליחת מייל אישור הרשמה
+  try {
+    if (email) {
+      const tpl = registrationReceived(full_name, {
+        title: w.title,
+        event_at: w.event_at,
+        price: w.price,
+        payment_link: paymentLink || w.payment_link || null
+      }, seats)
+      await sendEmail({ to: email, subject: tpl.subject, html: tpl.html, text: tpl.text })
+    }
+  } catch (e) {
+    console.error('email send failed (registration)', e)
+    // לא מפילים את הבקשה בגלל מייל
   }
 
   return NextResponse.json({
