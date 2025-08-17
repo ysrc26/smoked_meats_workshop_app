@@ -1,6 +1,8 @@
 // src/app/api/payment-webhook/route.ts
 import { NextRequest, NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabaseAdmin'
+import { sendEmail } from '@/lib/email'
+import { paymentConfirmed } from '@/lib/emailTemplates'
 
 function mapPaymentMethod(v: string): 'cash'|'card'|'transfer'|'other'|null {
   const s = (v || '').toString().trim().toLowerCase()
@@ -201,6 +203,28 @@ export async function POST(req: NextRequest) {
           .update({ matched: true, registration_id: chosen.id })
           .eq('id', logId)
       } catch {}
+    }
+
+     // עדכון הרשמה
+    try {
+      // נשלוף פרטי נרשם + סדנה בסיסית כדי ליצור מייל נעים
+      const { data: info } = await supabaseAdmin
+        .from('registrations')
+        .select('full_name, email, seats, workshop:workshops(title, event_at, price)')
+        .eq('id', chosen.id)
+        .single()
+
+      const recipient = info?.email
+      if (recipient) {
+        const tpl = paymentConfirmed(info.full_name, {
+          title: info.workshop?.[0]?.title || 'הסדנה',
+          event_at: info.workshop?.[0]?.event_at || new Date(),
+          price: info.workshop?.[0]?.price
+        }, /*amount?*/ undefined)
+        await sendEmail({ to: recipient, subject: tpl.subject, html: tpl.html, text: tpl.text })
+      }
+    } catch (e) {
+      console.error('email send failed (payment)', e)
     }
 
     // טריגר על payments יעדכן את registrations אוטומטית (amount_paid/paid/status)
