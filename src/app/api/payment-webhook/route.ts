@@ -11,64 +11,104 @@ function mapPaymentMethod(v: string): 'cash'|'card'|'transfer'|'other'|null {
   return 'other'
 }
 
-export async function POST(req: NextRequest) {
-  // --- לוג וובהוק: קוראים טקסט כדי לשמור as-is ואז מנסים JSON.parse ---
-  let rawText = ''
-  let raw: any
-  try {
-    rawText = await req.text()
-    raw = JSON.parse(rawText)
-  } catch {
-    // גם במצב של JSON לא תקין—נכניס ללוג ונחזיר תשובה זהה לקוד המקורי
-    try {
-      await supabaseAdmin.from('webhook_events').insert({
-        payload: { raw: rawText || '(empty)' },
-        headers: Object.fromEntries(req.headers.entries()),
-        source: 'grow',
-        matched: false
-      })
-    } catch {}
-    return NextResponse.json({ ok: false, error: 'invalid json' }, { status: 200 })
+/** מפענח גוף שמגיע כמחרוזת urlencoded ומחזיר אובייקט data עם המפתחות מתוך data[...] */
+function parseUrlEncodedToData(text: string) {
+  const params = new URLSearchParams(text)
+  const parsed: Record<string, any> = {}
+  for (const [k, v] of params.entries()) parsed[k] = v
+
+  // לבנות data מתוך מפתחות מסוג data[...]
+  const data: Record<string, any> = {}
+  for (const [k, v] of Object.entries(parsed)) {
+    const m = k.match(/^data\[(.+?)\]$/)
+    if (m) data[m[1]] = v
   }
+  // לעתים יש גם status/top-level מחוץ ל-data
+  if (parsed['status'] && !data['status']) data['status'] = parsed['status']
+  if (parsed['statusCode'] && !data['statusCode']) data['statusCode'] = parsed['statusCode']
+  return { data, parsed }
+}
 
-  // מכניסים ללוג הראשוני (matched=false); נשמור את id לעדכון בהמשך
-  let logId: string | null = null
-  try {
-    const { data: logRow } = await supabaseAdmin
-      .from('webhook_events')
-      .insert({
-        payload: raw, // as-is
-        headers: Object.fromEntries(req.headers.entries()),
-        source: 'grow',
-        matched: false
-      })
-      .select('id')
-      .single()
-    logId = logRow?.id ?? null
-  } catch {}
+export async function POST(req: NextRequest) {
+  // ננסה לתמוך בכל סוגי ה-body: JSON, JSON עם raw, או form-urlencoded
+  let rawForLog: any = null
+  let data: any = {}
 
   try {
-    const root = Array.isArray(raw) ? raw[0] : raw
-    const data = root?.data ?? root ?? {}
+    const contentType = req.headers.get('content-type') || ''
+    let bodyText = ''
 
-    // אימות סטטוס תשלום לפי Grow (לוגיקה קיימת)
+    if (contentType.includes('application/json')) {
+      // JSON רגיל או JSON עם raw
+      const json = await req.json().catch(() => null)
+      if (!json) {
+        return NextResponse.json({ ok: false, error: 'invalid json' }, { status: 200 })
+      }
+      rawForLog = json
+
+      if (typeof json?.raw === 'string') {
+        // המקרה שלך: { raw: "err=&status=1&data%5B...%5D=..." }
+        bodyText = json.raw
+        const { data: dataObj } = parseUrlEncodedToData(bodyText)
+        data = dataObj
+      } else {
+        data = json?.data ?? json ?? {}
+      }
+    } else {
+      // לא JSON — נקרא טקסט (urlencoded לרוב)
+      bodyText = await req.text()
+      rawForLog = bodyText || '(empty)'
+
+      if (bodyText && bodyText.includes('=')) {
+        const { data: dataObj, parsed } = parseUrlEncodedToData(bodyText)
+        data = dataObj
+        // אם הגיעו שדות שימושיים לא בתוך data[...] – נוסיף (ליתר בטחון)
+        if (!data.status && parsed['status']) data.status = parsed['status']
+        if (!data.statusCode && parsed['statusCode']) data.statusCode = parsed['statusCode']
+        if (!data.payerEmail && parsed['payerEmail']) data.payerEmail = parsed['payerEmail']
+        if (!data.payerPhone && parsed['payerPhone']) data.payerPhone = parsed['payerPhone']
+      } else {
+        return NextResponse.json({ ok: false, error: 'invalid body' }, { status: 200 })
+      }
+    }
+
+    // 1) לוג תמידי ל-webhook_events (as-is)
+    let logId: string | null = null
+    try {
+      const { data: logRow } = await supabaseAdmin
+        .from('webhook_events') // חשוב: אותו שם טבלה כפי שיצרת
+        .insert({
+          payload: typeof rawForLog === 'string' ? { raw: rawForLog } : rawForLog,
+          headers: Object.fromEntries(req.headers.entries()),
+          source: 'grow',
+          matched: false,
+        })
+        .select('id')
+        .single()
+      logId = logRow?.id ?? null
+    } catch (e) {
+      // לא מפילים את הוובהוק אם הלוג נכשל
+      console.error('failed to insert webhook_events log', e)
+    }
+
+    // 2) אימות תשלום
     const statusTxt: string = String(data?.status ?? '')
     const statusCode: string = String(data?.statusCode ?? '')
     const isPaid = statusCode === '2' || statusTxt === 'שולם'
     if (!isPaid) {
-      // אין התאמה => נשאיר matched=false
       return NextResponse.json({ ok: false, error: 'not paid' }, { status: 200 })
     }
 
-    // סכום בש"ח (לוגיקה קיימת)
+    // סכום בש"ח
     const paymentSumStr: string = String(data?.sum ?? '').replace(',', '.').trim()
     const amount_nis = Number(paymentSumStr)
     if (!Number.isFinite(amount_nis) || amount_nis <= 0) {
       return NextResponse.json({ ok: false, error: 'invalid amount' }, { status: 200 })
     }
 
-    const email = (data?.payerEmail ?? data?.email ?? '').trim().toLowerCase()
-    const phoneRaw = (data?.payerPhone ?? data?.phone ?? '').trim()
+    // זיהוי לפי אימייל/טלפון (לעיתים אימייל ריק — אז נשתמש בטלפון)
+    const email = (data?.payerEmail ?? data?.email ?? '').toString().trim().toLowerCase()
+    const phoneRaw = (data?.payerPhone ?? data?.phone ?? '').toString().trim()
     const onlyDigits = (s: string) => s.replace(/\D+/g, '')
     const phoneDigits = onlyDigits(phoneRaw)
     const phoneDashed =
@@ -78,8 +118,8 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ ok: false, error: 'missing email/phone' }, { status: 200 })
     }
 
-    // חיפוש הרשמה מתאימה (pending && !paid, 7 ימים) — לוגיקה קיימת
-    const sinceIso = new Date(Date.now() - 7*24*60*60*1000).toISOString()
+    // 3) חיפוש הרשמה מתאימה (pending && !paid, 7 ימים אחרונים)
+    const sinceIso = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString()
     const ors: string[] = []
     if (email) ors.push(`email.eq.${encodeURIComponent(email)}`)
     if (phoneDigits) {
@@ -96,31 +136,43 @@ export async function POST(req: NextRequest) {
 
     const { data: candidatesRaw, error: candErr } =
       ors.length ? await baseQ.or(ors.join(',')) : await baseQ
-    if (candErr) return NextResponse.json({ ok: false, error: 'db error' }, { status: 200 })
+    if (candErr) {
+      return NextResponse.json({ ok: false, error: 'db error' }, { status: 200 })
+    }
 
-    const norm = (s?: string|null)=> (s??'').trim().toLowerCase()
-    const normalizeDigits = (s?: string|null)=> s? s.replace(/\D+/g,''): ''
+    const norm = (s?: string | null) => (s ?? '').trim().toLowerCase()
+    const normalizeDigits = (s?: string | null) => (s ? s.replace(/\D+/g, '') : '')
     const wantedEmail = norm(email)
     const wantedDigits = phoneDigits
 
     const candidates = (candidatesRaw ?? []) as any[]
-    const chosen = candidates.find(c => {
-      const cEmail = norm(c.email)
-      const cDigits = normalizeDigits(c.phone)
-      const emailOk = wantedEmail ? cEmail === wantedEmail : true
-      const phoneOk = wantedDigits ? cDigits === wantedDigits : true
-      return (wantedEmail && wantedDigits) ? (emailOk || phoneOk) : (wantedEmail ? emailOk : phoneOk)
-    }) ?? candidates[0]
+    const chosen =
+      candidates.find((c) => {
+        const cEmail = norm(c.email)
+        const cDigits = normalizeDigits(c.phone)
+        const emailOk = wantedEmail ? cEmail === wantedEmail : true
+        const phoneOk = wantedDigits ? cDigits === wantedDigits : true
+        return wantedEmail && wantedDigits ? emailOk || phoneOk : wantedEmail ? emailOk : phoneOk
+      }) ?? candidates[0]
 
     if (!chosen) {
+      // עדכן לוג כלא-מותאם
+      if (logId) {
+        try {
+          await supabaseAdmin
+            .from('webhook_events')
+            .update({ matched: false })
+            .eq('id', logId)
+        } catch {}
+      }
       return NextResponse.json({ ok: false, error: 'no matching registration' }, { status: 200 })
     }
 
+    // 4) הכנסת תשלום (idempotent לפי external_payment_id אם קיים)
     const external_payment_id =
       data?.transactionId ?? data?.paymentId ?? data?.id ?? null
     const method = mapPaymentMethod(String(data?.paymentType ?? data?.method ?? ''))
 
-    // Insert payment (idempotent by external_payment_id) — לוגיקה קיימת
     const insertObj: any = {
       registration_id: chosen.id,
       amount: Math.floor(amount_nis),
@@ -138,11 +190,10 @@ export async function POST(req: NextRequest) {
       .maybeSingle()
 
     if (insErr && !String(insErr.message).includes('duplicate key')) {
-      // שגיאה אמיתית (לא כפילות)
       return NextResponse.json({ ok: false, error: insErr.message }, { status: 200 })
     }
 
-    // אם הצליח — נסמן את רשומת הלוג כ-matched=true ונשמור registration_id
+    // 5) עדכון הלוג – נמצאה התאמה
     if (logId) {
       try {
         await supabaseAdmin
@@ -152,16 +203,10 @@ export async function POST(req: NextRequest) {
       } catch {}
     }
 
-    // הטריגר על payments יעדכן את הרשמה אוטומטית
+    // טריגר על payments יעדכן את registrations אוטומטית (amount_paid/paid/status)
     return NextResponse.json({ ok: true, registration_id: chosen.id }, { status: 200 })
   } catch (err: any) {
     console.error('payment-webhook error', err)
-    // גם בשגיאה כללית—נסמן matched=false (אם יש לוג)
-    if (logId) {
-      try {
-        await supabaseAdmin.from('webhook_events').update({ matched: false }).eq('id', logId)
-      } catch {}
-    }
     return NextResponse.json({ ok: false, error: 'server error', details: err?.message }, { status: 200 })
   }
 }
