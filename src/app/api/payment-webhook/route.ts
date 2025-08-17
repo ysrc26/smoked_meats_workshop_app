@@ -12,21 +12,55 @@ function mapPaymentMethod(v: string): 'cash'|'card'|'transfer'|'other'|null {
 }
 
 export async function POST(req: NextRequest) {
+  // --- לוג וובהוק: קוראים טקסט כדי לשמור as-is ואז מנסים JSON.parse ---
+  let rawText = ''
+  let raw: any
   try {
-    let raw: any
-    try { raw = await req.json() } catch {
-      return NextResponse.json({ ok: false, error: 'invalid json' }, { status: 200 })
-    }
+    rawText = await req.text()
+    raw = JSON.parse(rawText)
+  } catch {
+    // גם במצב של JSON לא תקין—נכניס ללוג ונחזיר תשובה זהה לקוד המקורי
+    try {
+      await supabaseAdmin.from('webhook_events').insert({
+        payload: { raw: rawText || '(empty)' },
+        headers: Object.fromEntries(req.headers.entries()),
+        source: 'grow',
+        matched: false
+      })
+    } catch {}
+    return NextResponse.json({ ok: false, error: 'invalid json' }, { status: 200 })
+  }
+
+  // מכניסים ללוג הראשוני (matched=false); נשמור את id לעדכון בהמשך
+  let logId: string | null = null
+  try {
+    const { data: logRow } = await supabaseAdmin
+      .from('webhook_events')
+      .insert({
+        payload: raw, // as-is
+        headers: Object.fromEntries(req.headers.entries()),
+        source: 'grow',
+        matched: false
+      })
+      .select('id')
+      .single()
+    logId = logRow?.id ?? null
+  } catch {}
+
+  try {
     const root = Array.isArray(raw) ? raw[0] : raw
     const data = root?.data ?? root ?? {}
 
-    // אימות סטטוס תשלום לפי Grow
+    // אימות סטטוס תשלום לפי Grow (לוגיקה קיימת)
     const statusTxt: string = String(data?.status ?? '')
     const statusCode: string = String(data?.statusCode ?? '')
     const isPaid = statusCode === '2' || statusTxt === 'שולם'
-    if (!isPaid) return NextResponse.json({ ok: false, error: 'not paid' }, { status: 200 })
+    if (!isPaid) {
+      // אין התאמה => נשאיר matched=false
+      return NextResponse.json({ ok: false, error: 'not paid' }, { status: 200 })
+    }
 
-    // סכום בש"ח
+    // סכום בש"ח (לוגיקה קיימת)
     const paymentSumStr: string = String(data?.sum ?? '').replace(',', '.').trim()
     const amount_nis = Number(paymentSumStr)
     if (!Number.isFinite(amount_nis) || amount_nis <= 0) {
@@ -44,7 +78,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ ok: false, error: 'missing email/phone' }, { status: 200 })
     }
 
-    // חיפוש הרשמה מתאימה (pending && !paid, 7 ימים)
+    // חיפוש הרשמה מתאימה (pending && !paid, 7 ימים) — לוגיקה קיימת
     const sinceIso = new Date(Date.now() - 7*24*60*60*1000).toISOString()
     const ors: string[] = []
     if (email) ors.push(`email.eq.${encodeURIComponent(email)}`)
@@ -86,7 +120,7 @@ export async function POST(req: NextRequest) {
       data?.transactionId ?? data?.paymentId ?? data?.id ?? null
     const method = mapPaymentMethod(String(data?.paymentType ?? data?.method ?? ''))
 
-    // Insert payment (idempotent by external_payment_id)
+    // Insert payment (idempotent by external_payment_id) — לוגיקה קיימת
     const insertObj: any = {
       registration_id: chosen.id,
       amount: Math.floor(amount_nis),
@@ -108,10 +142,26 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ ok: false, error: insErr.message }, { status: 200 })
     }
 
-    // הטריגר יעדכן את ההרשמה אוטומטית
+    // אם הצליח — נסמן את רשומת הלוג כ-matched=true ונשמור registration_id
+    if (logId) {
+      try {
+        await supabaseAdmin
+          .from('webhook_events')
+          .update({ matched: true, registration_id: chosen.id })
+          .eq('id', logId)
+      } catch {}
+    }
+
+    // הטריגר על payments יעדכן את הרשמה אוטומטית
     return NextResponse.json({ ok: true, registration_id: chosen.id }, { status: 200 })
   } catch (err: any) {
     console.error('payment-webhook error', err)
+    // גם בשגיאה כללית—נסמן matched=false (אם יש לוג)
+    if (logId) {
+      try {
+        await supabaseAdmin.from('webhook_events').update({ matched: false }).eq('id', logId)
+      } catch {}
+    }
     return NextResponse.json({ ok: false, error: 'server error', details: err?.message }, { status: 200 })
   }
 }
