@@ -322,9 +322,9 @@ function WorkshopRow({ w, onChanged }: { w: any, onChanged: () => void }) {
     <Card className="border border-line">
       <CardContent className="py-4">
         <div className="flex flex-col gap-2">
-          <div className="flex items-center justify-between gap-4">
+          <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
             <div className="text-base font-semibold">{w.title}</div>
-            <div className="flex items-center gap-3">
+            <div className="flex flex-wrap items-center gap-3">
               <Badge variant={w.is_active ? "default" : "secondary"}>
                 {w.is_active ? "פעילה" : "מושבתת"}
               </Badge>
@@ -350,7 +350,7 @@ function WorkshopRow({ w, onChanged }: { w: any, onChanged: () => void }) {
 
           </div>
           <div className="text-sm text-muted-foreground">{new Date(w.event_at).toLocaleString('he-IL')}</div>
-          <div className="flex items-center gap-3 justify-end pt-2">
+          <div className="flex flex-wrap items-center gap-3 justify-end pt-2">
             <Dialog open={openEdit} onOpenChange={setOpenEdit}>
               <DialogTrigger asChild>
                 <Button variant="secondary">עריכה</Button>
@@ -440,7 +440,7 @@ function WorkshopEditDialog({
   }
 
   return (
-    <DialogContent className="sm:max-w-lg">
+    <DialogContent className="w-full sm:max-w-lg">
       <DialogHeader>
         <DialogTitle>עריכת סדנה</DialogTitle>
         <DialogDescription className="text-xs">עדכן פרטים ושמור</DialogDescription>
@@ -452,7 +452,7 @@ function WorkshopEditDialog({
           <Input value={title} onChange={e => setTitle(e.target.value)} />
         </div>
 
-        <div className="grid grid-cols-2 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <div className="space-y-2">
             <Label className="font-semibold">תאריך</Label>
             <Input type="date" value={date} onChange={e => setDate(e.target.value)} />
@@ -468,7 +468,7 @@ function WorkshopEditDialog({
           <Textarea rows={3} value={description} onChange={e => setDescription(e.target.value)} />
         </div>
 
-        <div className="grid grid-cols-3 gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           <div className="space-y-2">
             <Label className="font-semibold">קיבולת</Label>
             <Input type="number" min={1} value={capacity} onChange={e => setCapacity(Number(e.target.value || 0))} />
@@ -482,7 +482,7 @@ function WorkshopEditDialog({
             <Label htmlFor="isPublicEdit">פומבית</Label>
           </div>
 
-          <div className="space-y-2 col-span-3 md:col-span-1">
+          <div className="space-y-2 md:col-span-3">
             <Label className="font-semibold">קישור תשלום</Label>
             <Input value={paymentLink} onChange={e => setPaymentLink(e.target.value)} placeholder="https://..." />
           </div>
@@ -594,7 +594,7 @@ function PaymentsDialog({
 
   return (
     <Dialog open={open} onOpenChange={(v)=> v ? null : onClose()}>
-      <DialogContent className="sm:max-w-2xl">
+      <DialogContent className="w-full sm:max-w-2xl">
         <DialogHeader>
           <DialogTitle>תשלומים – {registration.full_name}</DialogTitle>
           <DialogDescription className="text-xs">
@@ -603,7 +603,7 @@ function PaymentsDialog({
         </DialogHeader>
 
         <div className="space-y-4">
-          <div className="rounded-md border">
+          <div className="rounded-md border overflow-x-auto">
             <Table>
               <TableHeader>
                 <TableRow>
