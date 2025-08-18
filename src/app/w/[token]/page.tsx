@@ -72,22 +72,24 @@ export default function PrivateWorkshopPage() {
   }
 
   return (
-    <div className="flex flex-col gap-6">
-      <div>
-        <h1 className="text-3xl font-semibold mb-1">רישום לסדנה פרטית</h1>
+    <div className="container py-8">
+      <div className="flex flex-col gap-6">
+        <div>
+          <h1 className="text-3xl font-semibold mb-1">רישום לסדנה פרטית</h1>
+        </div>
+
+        <PublicWorkshopCard
+          w={workshop}
+          onRegister={() => setOpen(true)}
+        />
+
+        <RegistrationDialog
+          open={open}
+          onClose={() => setOpen(false)}
+          workshop={{ id: workshop.id, title: workshop.title, seats_left: workshop.seats_left }}
+          onSuccess={fetchByToken}
+        />
       </div>
-
-      <PublicWorkshopCard
-        w={workshop}
-        onRegister={() => setOpen(true)}
-      />
-
-      <RegistrationDialog
-        open={open}
-        onClose={() => setOpen(false)}
-        workshop={{ id: workshop.id, title: workshop.title, seats_left: workshop.seats_left }}
-        onSuccess={fetchByToken}
-      />
     </div>
   )
 }

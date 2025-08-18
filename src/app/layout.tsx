@@ -14,9 +14,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         <link rel="icon" href="/favicon.ico" />
       </head>
       <body className="min-h-dvh bg-background text-foreground">
-        <div className="container py-8">
           {children}
-        </div>
       </body>
     </html>
   )

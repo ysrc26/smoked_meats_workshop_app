@@ -72,43 +72,45 @@ export default function Page() {
 
 
   return (
-    <div className="flex flex-col gap-6">
-      <div>
-        <h1 className="text-3xl font-semibold mb-1">סדנאות זמינות</h1>
-        <p className="text-sm text-muted-foreground">בחר סדנה פנויה, מלא פרטים והירשם</p>
+    <div className="container py-8">
+      <div className="flex flex-col gap-6">
+        <div>
+          <h1 className="text-3xl font-semibold mb-1">סדנאות זמינות</h1>
+          <p className="text-sm text-muted-foreground">בחר סדנה פנויה, מלא פרטים והירשם</p>
+        </div>
+
+        {loading && <div className="text-sm text-muted-foreground">טוען…</div>}
+
+        {!loading && workshops.length === 0 && (
+          <Card className="p-6 text-sm text-muted-foreground">
+            אין סדנאות זמינות כרגע.
+          </Card>
+        )}
+
+        <div className="flex flex-col gap-4">
+          {workshops.map((w) => (
+            <PublicWorkshopCard key={w.id} w={w} onRegister={setSelected} />
+          ))}
+        </div>
+
+        <RegistrationDialog
+          open={Boolean(selected)}
+          onClose={() => setSelected(null)}
+          workshop={selected as any}
+          onSuccess={async () => {
+            // רענון אחרי הרשמה
+            const { data } = await supabaseBrowser
+              .from("workshops_with_stats")
+              .select("*")
+              .eq("is_public", true)
+              .gte("event_at", new Date().toISOString())
+              .eq("is_active", true)
+              .order("event_at", { ascending: true })
+            if (data) setWorkshops(data as any)
+          }}
+        />
+
       </div>
-
-      {loading && <div className="text-sm text-muted-foreground">טוען…</div>}
-
-      {!loading && workshops.length === 0 && (
-        <Card className="p-6 text-sm text-muted-foreground">
-          אין סדנאות זמינות כרגע.
-        </Card>
-      )}
-
-      <div className="flex flex-col gap-4">
-        {workshops.map((w) => (
-          <PublicWorkshopCard key={w.id} w={w} onRegister={setSelected} />
-        ))}
-      </div>
-
-      <RegistrationDialog
-        open={Boolean(selected)}
-        onClose={() => setSelected(null)}
-        workshop={selected as any}
-        onSuccess={async () => {
-          // רענון אחרי הרשמה
-          const { data } = await supabaseBrowser
-            .from("workshops_with_stats")
-            .select("*")
-            .eq("is_public", true)
-            .gte("event_at", new Date().toISOString())
-            .eq("is_active", true)
-            .order("event_at", { ascending: true })
-          if (data) setWorkshops(data as any)
-        }}
-      />
-
     </div>
   )
 }
