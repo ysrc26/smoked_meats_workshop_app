@@ -209,13 +209,13 @@ function WorkshopEditDialog({
   }
 
   return (
-    <DialogContent className="w-full sm:max-w-lg">
-      <DialogHeader>
+    <DialogContent className="w-full sm:max-w-lg max-h-[90vh] flex flex-col">
+      <DialogHeader className="flex-shrink-0">
         <DialogTitle>עריכת סדנה</DialogTitle>
         <DialogDescription className="text-xs">עדכן פרטים ושמור</DialogDescription>
       </DialogHeader>
 
-      <div className="grid gap-4">
+      <div className="flex-1 overflow-y-auto space-y-4">
         <div className="space-y-2">
           <Label className="font-semibold">כותרת</Label>
           <Input value={title} onChange={e => setTitle(e.target.value)} />
@@ -258,23 +258,23 @@ function WorkshopEditDialog({
         </div>
 
         {err && <Alert variant="destructive"><AlertDescription>{err}</AlertDescription></Alert>}
+
+        {!isPublic && w.access_token && (
+          <div className="flex items-center justify-between gap-3 rounded-md border p-3">
+            <div className="text-sm">
+              קישור לשיתוף:
+              <div className="truncate text-muted-foreground">
+                {getShareUrl(w.access_token)}
+              </div>
+            </div>
+            <Button variant="secondary" size="sm" onClick={copyFromDialog}>
+              {copiedShare ? 'הועתק ✓' : 'העתק קישור'}
+            </Button>
+          </div>
+        )}
       </div>
 
-      {!isPublic && w.access_token && (
-        <div className="flex items-center justify-between gap-3 rounded-md border p-3">
-          <div className="text-sm">
-            קישור לשיתוף:
-            <div className="truncate text-muted-foreground">
-              {getShareUrl(w.access_token)}
-            </div>
-          </div>
-          <Button variant="secondary" size="sm" onClick={copyFromDialog}>
-            {copiedShare ? 'הועתק ✓' : 'העתק קישור'}
-          </Button>
-        </div>
-      )}
-
-      <div className="flex justify-end gap-2">
+      <div className="flex justify-end gap-2 pt-4 border-t bg-background flex-shrink-0">
         <Button variant="secondary" onClick={onClose}>ביטול</Button>
         <Button onClick={save} disabled={busy}>{busy ? 'שומר…' : 'שמירה'}</Button>
       </div>

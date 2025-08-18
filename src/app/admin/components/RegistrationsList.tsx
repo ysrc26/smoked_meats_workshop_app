@@ -101,7 +101,7 @@ function PaymentsDialog({
 
   return (
     <Dialog open={open} onOpenChange={(v)=> v ? null : onClose()}>
-      <DialogContent className="w-full sm:max-w-2xl">
+      <DialogContent className="w-full sm:max-w-2xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>תשלומים — {registration.full_name}</DialogTitle>
           <DialogDescription className="text-xs">
@@ -109,7 +109,7 @@ function PaymentsDialog({
           </DialogDescription>
         </DialogHeader>
 
-        <div className="space-y-4">
+        <div className="space-y-4 flex-1 overflow-y-auto">
           <div className="rounded-md border overflow-x-auto">
             <Table className="min-w-[800px]">
               <TableHeader>
@@ -186,7 +186,7 @@ function PaymentsDialog({
           {err && <Alert variant="destructive"><AlertDescription>{err}</AlertDescription></Alert>}
         </div>
 
-        <div className="flex justify-end gap-2 pt-2">
+        <div className="flex justify-end gap-2 pt-2 sticky bottom-0 bg-background border-t">
           <Button variant="secondary" onClick={onClose}>סגור</Button>
         </div>
       </DialogContent>
