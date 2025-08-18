@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { Button } from '@/components/ui/button'
 import { Card, CardHeader, CardTitle, CardDescription, CardContent, CardFooter } from '@/components/ui/card'
 import { Label } from '@/components/ui/label'
@@ -59,13 +59,41 @@ export default function AdminPage() {
   const [navOpen, setNavOpen] = useState(false)
   const [view, setView] = useState<'new'|'open'|'regs'>('new')
 
+  // ---- סדנאות לבחירת סינון ברשימת נרשמים ----
+  const [workshopsOptions, setWorkshopsOptions] = useState<any[]>([])
+  useEffect(() => {
+    // מביא רשימת סדנאות פעילה/לא – לטובת סינון
+    fetch('/api/admin/workshops')
+      .then(r => r.json().catch(()=> ({})))
+      .then(j => setWorkshopsOptions(j?.data || []))
+      .catch(()=> setWorkshopsOptions([]))
+  }, [authed])
+
+  // ---- סטייט סינון לרשימת נרשמים ----
+  const [fWorkshop, setFWorkshop] = useState<string>('all')
+  const [fStatus, setFStatus]   = useState<'all'|'pending'|'confirmed'|'cancelled'>('all')
+  const [fPaid, setFPaid]       = useState<'all'|'paid'|'unpaid'>('all')
+  const [fFrom, setFFrom]       = useState<string>('') // YYYY-MM-DD
+  const [fTo, setFTo]           = useState<string>('') // YYYY-MM-DD
+
+  // בניית QS לפילטרים – בדיוק לפי הציפייה של /api/admin/registrations
+  const filtersQS = useMemo(() => {
+    const params = new URLSearchParams()
+    if (fWorkshop && fWorkshop !== 'all') params.set('workshop', fWorkshop)
+    if (fStatus && fStatus !== 'all')     params.set('status', fStatus)
+    if (fPaid && fPaid !== 'all')         params.set('paid', fPaid)
+    if (fFrom)                            params.set('from', fFrom)
+    if (fTo)                              params.set('to', fTo)
+    return params.toString()
+  }, [fWorkshop, fStatus, fPaid, fFrom, fTo])
+
   if (!authed) return <AdminLogin onOk={() => setAuthed(true)} />
 
   const nav = (
     <nav className="flex flex-col gap-2">
-      <Button variant="ghost" onClick={() => { setView('new'); setNavOpen(false) }}>פתיחת סדנא חדשה</Button>
-      <Button variant="ghost" onClick={() => { setView('open'); setNavOpen(false) }}>סדנאות פתוחות</Button>
-      <Button variant="ghost" onClick={() => { setView('regs'); setNavOpen(false) }}>רשימת נרשמים</Button>
+      <Button variant={view==='new' ? 'secondary':'ghost'} onClick={() => { setView('new'); setNavOpen(false) }}>פתיחת סדנא חדשה</Button>
+      <Button variant={view==='open'? 'secondary':'ghost'} onClick={() => { setView('open'); setNavOpen(false) }}>סדנאות פתוחות</Button>
+      <Button variant={view==='regs'? 'secondary':'ghost'} onClick={() => { setView('regs'); setNavOpen(false) }}>רשימת נרשמים</Button>
     </nav>
   )
 
@@ -81,9 +109,20 @@ export default function AdminPage() {
           </Button>
         </div>
         <div className="p-4 space-y-4">
-          {view === 'new' && <NewWorkshopForm />}
+          {view === 'new'  && <NewWorkshopForm />}
           {view === 'open' && <OpenWorkshops />}
-          {view === 'regs' && <RegistrationsList />}
+          {view === 'regs' && (
+            <RegistrationsList
+              workshopsOptions={workshopsOptions}
+              // props של סינון
+              filtersQS={filtersQS}
+              fWorkshop={fWorkshop} setFWorkshop={setFWorkshop}
+              fStatus={fStatus} setFStatus={setFStatus}
+              fPaid={fPaid} setFPaid={setFPaid}
+              fFrom={fFrom} setFFrom={setFFrom}
+              fTo={fTo} setFTo={setFTo}
+            />
+          )}
         </div>
       </div>
       {navOpen && (
@@ -96,4 +135,3 @@ export default function AdminPage() {
     </div>
   )
 }
-
