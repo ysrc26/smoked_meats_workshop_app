@@ -110,7 +110,7 @@ function PaymentsDialog({
 
         <div className="space-y-4">
           <div className="rounded-md border overflow-x-auto">
-            <Table>
+            <Table className="min-w-[800px]">
               <TableHeader>
                 <TableRow>
                   <TableHead className="text-right">תאריך</TableHead>
@@ -303,7 +303,7 @@ export default function RegistrationsList(props: {
 
   const renderPaidCell = (r: any) => {
     const amount = Number(r.amount_paid ?? 0)
-    const pricePerSeat = Number(r.workshop?.price ?? NaN)
+       const pricePerSeat = Number(r.workshop?.price ?? NaN)
     const seats = Number(r.seats ?? 1)
 
     if (Number.isFinite(pricePerSeat)) {
@@ -381,195 +381,198 @@ export default function RegistrationsList(props: {
       </CardHeader>
 
       <CardContent>
-        <div className="overflow-x-auto">
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead className="text-right">סדנה</TableHead>
-                <TableHead className="text-right">שם</TableHead>
-                <TableHead className="text-right">אימייל</TableHead>
-                <TableHead className="text-right">טלפון</TableHead>
-                <TableHead className="text-right">כמות</TableHead>
-                <TableHead className="text-right">שולם</TableHead>
-                <TableHead className="text-right">שולם בפועל</TableHead>
-                <TableHead className="text-right">שיטת תשלום</TableHead>
-                <TableHead className="text-right">סטטוס</TableHead>
-                <TableHead className="text-right">תאריך הרשמה</TableHead>
-                <TableHead className="text-right">קישור תשלום</TableHead>
-                <TableHead className="text-right">פעולות</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {rows.map((r) => {
-                const isEdit = r.id === editId
-                return (
-                  <TableRow key={r.id} className="align-top">
-                    {/* סדנה */}
-                    <TableCell className="text-right">
-                      <div className="font-medium">{r.workshop?.title || '—'}</div>
-                      <div className="text-xs text-muted-foreground">
-                        {r.workshop?.event_at ? new Date(r.workshop.event_at).toLocaleString('he-IL') : ''}
-                      </div>
-                    </TableCell>
-
-                    <TableCell className="text-right">{r.full_name}</TableCell>
-                    <TableCell className="text-right">{r.email}</TableCell>
-                    <TableCell className="text-right">{r.phone}</TableCell>
-
-                    {/* כמות */}
-                    <TableCell className="text-right">
-                      {isEdit ? (
-                        <Input
-                          type="number"
-                          min={1}
-                          className="w-20"
-                          value={draft.seats ?? 1}
-                          onChange={(e) => setDraft((d: any) => ({ ...d, seats: Number(e.target.value || 1) }))}
-                        />
-                      ) : (
-                        r.seats
-                      )}
-                    </TableCell>
-
-                    {/* שולם */}
-                    <TableCell className="text-right">
-                      {isEdit ? (
-                        <Switch
-                          checked={!!draft.paid}
-                          onCheckedChange={(v) => setDraft((d: any) => ({ ...d, paid: Boolean(v) }))}
-                          disabled={busyId === r.id}
-                        />
-                      ) : (
-                        renderPaidCell(r)
-                      )}
-                    </TableCell>
-
-                    {/* שולם בפועל */}
-                    <TableCell className="text-right">
-                      {isEdit ? (
-                        <Input
-                          type="number"
-                          min={0}
-                          className="w-24"
-                          value={draft.amount_paid ?? 0}
-                          onChange={(e) =>
-                            setDraft((d: any) => ({
-                              ...d,
-                              amount_paid: Math.max(0, Math.floor(Number(e.target.value || 0)))
-                            }))
-                          }
-                        />
-                      ) : (
-                        Number(r.amount_paid ?? 0)
-                      )}
-                    </TableCell>
-
-                    {/* שיטת תשלום */}
-                    <TableCell className="text-right">
-                      {isEdit ? (
-                        <Select
-                          value={draft.payment_method ?? "none"}
-                          onValueChange={(val) => setDraft((d: any) => ({ ...d, payment_method: val }))}
-                          disabled={busyId === r.id}
-                        >
-                          <SelectTrigger className="w-36">
-                            <SelectValue placeholder="בחר שיטה" />
-                          </SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="none">—</SelectItem>
-                            <SelectItem value="cash">מזומן</SelectItem>
-                            <SelectItem value="card">אשראי</SelectItem>
-                            <SelectItem value="transfer">העברה/ביט</SelectItem>
-                            <SelectItem value="other">אחר</SelectItem>
-                          </SelectContent>
-                        </Select>
-                      ) : (
-                        r.payment_method ?? '—'
-                      )}
-                    </TableCell>
-
-                    {/* סטטוס */}
-                    <TableCell className="text-right">
-                      {isEdit ? (
-                        <Select
-                          value={draft.status}
-                          onValueChange={(val) => setDraft((d: any) => ({ ...d, status: val }))}
-                          disabled={busyId === r.id}
-                        >
-                          <SelectTrigger className="w-32">
-                            <SelectValue />
-                          </SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="pending">pending</SelectItem>
-                            <SelectItem value="confirmed">confirmed</SelectItem>
-                            <SelectItem value="cancelled">cancelled</SelectItem>
-                          </SelectContent>
-                        </Select>
-                      ) : (
-                        r.status
-                      )}
-                    </TableCell>
-
-                    <TableCell className="text-right">
-                      {new Date(r.created_at).toLocaleString('he-IL')}
-                    </TableCell>
-
-                    {/* קישור תשלום */}
-                    <TableCell className="text-right">
-                      {isEdit ? (
-                        <Input
-                          className="w-48"
-                          value={draft.payment_link ?? ''}
-                          onChange={(e) => setDraft((d: any) => ({ ...d, payment_link: e.target.value }))}
-                        />
-                      ) : (
-                        r.payment_link ? <a href={r.payment_link} target="_blank" rel="noreferrer" className="underline">קישור</a> : '—'
-                      )}
-                    </TableCell>
-
-                    {/* פעולות */}
-                    <TableCell className="text-right">
-                      {!isEdit ? (
-                        <div className="flex items-center gap-2 justify-end">
-                          <Button variant="secondary" onClick={() => startEdit(r)}>עריכה</Button>
-                          <Button variant="outline" onClick={() => openPayments(r)}>תשלומים</Button>
-                          <AlertDialog>
-                            <AlertDialogTrigger asChild>
-                              <Button variant="ghost" className="text-red-600 hover:text-red-700" disabled={busyId === r.id}>מחיקה</Button>
-                            </AlertDialogTrigger>
-                            <AlertDialogContent>
-                              <AlertDialogHeader>
-                                <AlertDialogTitle>למחוק את הרישום?</AlertDialogTitle>
-                                <AlertDialogDescription>הפעולה תפנה מקום בסדנה. בלתי הפיך.</AlertDialogDescription>
-                              </AlertDialogHeader>
-                              <AlertDialogFooter>
-                                <AlertDialogCancel>ביטול</AlertDialogCancel>
-                                <AlertDialogAction onClick={() => { setBusyId(r.id); fetch(`/api/admin/registrations/${r.id}`, { method: "DELETE" }).then(load).finally(()=> setBusyId(null)) }} className="bg-red-600 hover:bg-red-700">מחק</AlertDialogAction>
-                              </AlertDialogFooter>
-                            </AlertDialogContent>
-                          </AlertDialog>
+        {/* מיכל גלילה לטבלה בלבד */}
+        <div className="rounded-md border">
+          <div className="max-h-[70vh] overflow-auto">
+            <Table className="min-w-[1000px]">
+              <TableHeader className="sticky top-0 bg-background z-10">
+                <TableRow>
+                  <TableHead className="text-right">סדנה</TableHead>
+                  <TableHead className="text-right">שם</TableHead>
+                  <TableHead className="text-right">אימייל</TableHead>
+                  <TableHead className="text-right">טלפון</TableHead>
+                  <TableHead className="text-right">כמות</TableHead>
+                  <TableHead className="text-right">שולם</TableHead>
+                  <TableHead className="text-right">שולם בפועל</TableHead>
+                  <TableHead className="text-right">שיטת תשלום</TableHead>
+                  <TableHead className="text-right">סטטוס</TableHead>
+                  <TableHead className="text-right">תאריך הרשמה</TableHead>
+                  <TableHead className="text-right">קישור תשלום</TableHead>
+                  <TableHead className="text-right">פעולות</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {rows.map((r) => {
+                  const isEdit = r.id === editId
+                  return (
+                    <TableRow key={r.id} className="align-top">
+                      {/* סדנה */}
+                      <TableCell className="text-right">
+                        <div className="font-medium">{r.workshop?.title || '—'}</div>
+                        <div className="text-xs text-muted-foreground">
+                          {r.workshop?.event_at ? new Date(r.workshop.event_at).toLocaleString('he-IL') : ''}
                         </div>
-                      ) : (
-                        <div className="flex items-center gap-2 justify-end">
-                          <Button variant="secondary" onClick={cancelEdit} disabled={busyId === r.id}>ביטול</Button>
-                          <Button onClick={() => saveEdit(r.id)} disabled={busyId === r.id || Number(draft.seats) < 1}>
-                            {busyId === r.id ? "שומר…" : "שמירה"}
-                          </Button>
-                        </div>
-                      )}
+                      </TableCell>
+
+                      <TableCell className="text-right">{r.full_name}</TableCell>
+                      <TableCell className="text-right">{r.email}</TableCell>
+                      <TableCell className="text-right">{r.phone}</TableCell>
+
+                      {/* כמות */}
+                      <TableCell className="text-right">
+                        {isEdit ? (
+                          <Input
+                            type="number"
+                            min={1}
+                            className="w-20"
+                            value={draft.seats ?? 1}
+                            onChange={(e) => setDraft((d: any) => ({ ...d, seats: Number(e.target.value || 1) }))}
+                          />
+                        ) : (
+                          r.seats
+                        )}
+                      </TableCell>
+
+                      {/* שולם */}
+                      <TableCell className="text-right">
+                        {isEdit ? (
+                          <Switch
+                            checked={!!draft.paid}
+                            onCheckedChange={(v) => setDraft((d: any) => ({ ...d, paid: Boolean(v) }))}
+                            disabled={busyId === r.id}
+                          />
+                        ) : (
+                          renderPaidCell(r)
+                        )}
+                      </TableCell>
+
+                      {/* שולם בפועל */}
+                      <TableCell className="text-right">
+                        {isEdit ? (
+                          <Input
+                            type="number"
+                            min={0}
+                            className="w-24"
+                            value={draft.amount_paid ?? 0}
+                            onChange={(e) =>
+                              setDraft((d: any) => ({
+                                ...d,
+                                amount_paid: Math.max(0, Math.floor(Number(e.target.value || 0)))
+                              }))
+                            }
+                          />
+                        ) : (
+                          Number(r.amount_paid ?? 0)
+                        )}
+                      </TableCell>
+
+                      {/* שיטת תשלום */}
+                      <TableCell className="text-right">
+                        {isEdit ? (
+                          <Select
+                            value={draft.payment_method ?? "none"}
+                            onValueChange={(val) => setDraft((d: any) => ({ ...d, payment_method: val }))}
+                            disabled={busyId === r.id}
+                          >
+                            <SelectTrigger className="w-36">
+                              <SelectValue placeholder="בחר שיטה" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="none">—</SelectItem>
+                              <SelectItem value="cash">מזומן</SelectItem>
+                              <SelectItem value="card">אשראי</SelectItem>
+                              <SelectItem value="transfer">העברה/ביט</SelectItem>
+                              <SelectItem value="other">אחר</SelectItem>
+                            </SelectContent>
+                          </Select>
+                        ) : (
+                          r.payment_method ?? '—'
+                        )}
+                      </TableCell>
+
+                      {/* סטטוס */}
+                      <TableCell className="text-right">
+                        {isEdit ? (
+                          <Select
+                            value={draft.status}
+                            onValueChange={(val) => setDraft((d: any) => ({ ...d, status: val }))}
+                            disabled={busyId === r.id}
+                          >
+                            <SelectTrigger className="w-32">
+                              <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="pending">pending</SelectItem>
+                              <SelectItem value="confirmed">confirmed</SelectItem>
+                              <SelectItem value="cancelled">cancelled</SelectItem>
+                            </SelectContent>
+                          </Select>
+                        ) : (
+                          r.status
+                        )}
+                      </TableCell>
+
+                      <TableCell className="text-right">
+                        {new Date(r.created_at).toLocaleString('he-IL')}
+                      </TableCell>
+
+                      {/* קישור תשלום */}
+                      <TableCell className="text-right">
+                        {isEdit ? (
+                          <Input
+                            className="w-48"
+                            value={draft.payment_link ?? ''}
+                            onChange={(e) => setDraft((d: any) => ({ ...d, payment_link: e.target.value }))}
+                          />
+                        ) : (
+                          r.payment_link ? <a href={r.payment_link} target="_blank" rel="noreferrer" className="underline">קישור</a> : '—'
+                        )}
+                      </TableCell>
+
+                      {/* פעולות */}
+                      <TableCell className="text-right">
+                        {!isEdit ? (
+                          <div className="flex items-center gap-2 justify-end">
+                            <Button variant="secondary" onClick={() => startEdit(r)}>עריכה</Button>
+                            <Button variant="outline" onClick={() => openPayments(r)}>תשלומים</Button>
+                            <AlertDialog>
+                              <AlertDialogTrigger asChild>
+                                <Button variant="ghost" className="text-red-600 hover:text-red-700" disabled={busyId === r.id}>מחיקה</Button>
+                              </AlertDialogTrigger>
+                              <AlertDialogContent>
+                                <AlertDialogHeader>
+                                  <AlertDialogTitle>למחוק את הרישום?</AlertDialogTitle>
+                                  <AlertDialogDescription>הפעולה תפנה מקום בסדנה. בלתי הפיך.</AlertDialogDescription>
+                                </AlertDialogHeader>
+                                <AlertDialogFooter>
+                                  <AlertDialogCancel>ביטול</AlertDialogCancel>
+                                  <AlertDialogAction onClick={() => { setBusyId(r.id); fetch(`/api/admin/registrations/${r.id}`, { method: "DELETE" }).then(load).finally(()=> setBusyId(null)) }} className="bg-red-600 hover:bg-red-700">מחק</AlertDialogAction>
+                                </AlertDialogFooter>
+                              </AlertDialogContent>
+                            </AlertDialog>
+                          </div>
+                        ) : (
+                          <div className="flex items-center gap-2 justify-end">
+                            <Button variant="secondary" onClick={cancelEdit} disabled={busyId === r.id}>ביטול</Button>
+                            <Button onClick={() => saveEdit(r.id)} disabled={busyId === r.id || Number(draft.seats) < 1}>
+                              {busyId === r.id ? "שומר…" : "שמירה"}
+                            </Button>
+                          </div>
+                        )}
+                      </TableCell>
+                    </TableRow>
+                  )
+                })}
+                {rows.length === 0 && (
+                  <TableRow>
+                    <TableCell colSpan={12} className="text-center text-muted-foreground">
+                      אין רישומים בהתאם לסינון.
                     </TableCell>
                   </TableRow>
-                )
-              })}
-              {rows.length === 0 && (
-                <TableRow>
-                  <TableCell colSpan={12} className="text-center text-muted-foreground">
-                    אין רישומים בהתאם לסינון.
-                  </TableCell>
-                </TableRow>
-              )}
-            </TableBody>
-          </Table>
+                )}
+              </TableBody>
+            </Table>
+          </div>
         </div>
       </CardContent>
 

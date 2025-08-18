@@ -62,7 +62,7 @@ export default function AdminPage() {
   // ---- סדנאות לבחירת סינון ברשימת נרשמים ----
   const [workshopsOptions, setWorkshopsOptions] = useState<any[]>([])
   useEffect(() => {
-    // מביא רשימת סדנאות פעילה/לא – לטובת סינון
+    if (!authed) return
     fetch('/api/admin/workshops')
       .then(r => r.json().catch(()=> ({})))
       .then(j => setWorkshopsOptions(j?.data || []))
@@ -76,7 +76,6 @@ export default function AdminPage() {
   const [fFrom, setFFrom]       = useState<string>('') // YYYY-MM-DD
   const [fTo, setFTo]           = useState<string>('') // YYYY-MM-DD
 
-  // בניית QS לפילטרים – בדיוק לפי הציפייה של /api/admin/registrations
   const filtersQS = useMemo(() => {
     const params = new URLSearchParams()
     if (fWorkshop && fWorkshop !== 'all') params.set('workshop', fWorkshop)
@@ -90,31 +89,56 @@ export default function AdminPage() {
   if (!authed) return <AdminLogin onOk={() => setAuthed(true)} />
 
   const nav = (
-    <nav className="flex flex-col gap-2">
-      <Button variant={view==='new' ? 'secondary':'ghost'} onClick={() => { setView('new'); setNavOpen(false) }}>פתיחת סדנא חדשה</Button>
-      <Button variant={view==='open'? 'secondary':'ghost'} onClick={() => { setView('open'); setNavOpen(false) }}>סדנאות פתוחות</Button>
-      <Button variant={view==='regs'? 'secondary':'ghost'} onClick={() => { setView('regs'); setNavOpen(false) }}>רשימת נרשמים</Button>
+    <nav className="flex flex-col gap-2 p-4">
+      <Button
+        variant={view==='new' ? 'secondary':'ghost'}
+        onClick={() => { setView('new'); setNavOpen(false) }}
+        className="justify-start"
+      >
+        פתיחת סדנא חדשה
+      </Button>
+      <Button
+        variant={view==='open'? 'secondary':'ghost'}
+        onClick={() => { setView('open'); setNavOpen(false) }}
+        className="justify-start"
+      >
+        סדנאות פתוחות
+      </Button>
+      <Button
+        variant={view==='regs'? 'secondary':'ghost'}
+        onClick={() => { setView('regs'); setNavOpen(false) }}
+        className="justify-start"
+      >
+        רשימת נרשמים
+      </Button>
     </nav>
   )
 
   return (
-    <div className="flex">
-      <aside className="hidden md:block w-64 border-l p-4">
+    <div className="min-h-screen bg-background">
+      {/* סייד־בר קבוע בימין במסכים רחבים */}
+      <aside className="hidden md:flex fixed inset-y-0 right-0 w-64 border-l bg-background z-40">
         {nav}
       </aside>
-      <div className="flex-1">
-        <div className="p-4 md:hidden">
-          <Button variant="outline" size="icon" onClick={() => setNavOpen(true)}>
+
+      {/* כותרת + כפתור המבורגר במובייל */}
+      <header className="md:hidden sticky top-0 z-30 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
+        <div className="p-3 flex items-center justify-between">
+          <div className="font-semibold">ניהול סדנאות</div>
+          <Button variant="outline" size="icon" onClick={() => setNavOpen(true)} aria-label="פתח תפריט">
             <Menu className="h-5 w-5" />
           </Button>
         </div>
-        <div className="p-4 space-y-4">
+      </header>
+
+      {/* תוכן ראשי: מפנה מקום לסייד־בר בימין בדסקטופ */}
+      <main className="p-4 md:pr-72">
+        <div className="space-y-6">
           {view === 'new'  && <NewWorkshopForm />}
           {view === 'open' && <OpenWorkshops />}
           {view === 'regs' && (
             <RegistrationsList
               workshopsOptions={workshopsOptions}
-              // props של סינון
               filtersQS={filtersQS}
               fWorkshop={fWorkshop} setFWorkshop={setFWorkshop}
               fStatus={fStatus} setFStatus={setFStatus}
@@ -124,10 +148,20 @@ export default function AdminPage() {
             />
           )}
         </div>
-      </div>
+      </main>
+
+      {/* דראואר מובייל */}
       {navOpen && (
-        <div className="fixed inset-0 z-50 flex" onClick={() => setNavOpen(false)}>
-          <div className="ml-auto w-64 h-full bg-background border-l p-4" onClick={e => e.stopPropagation()}>
+        <div className="fixed inset-0 z-50" onClick={() => setNavOpen(false)}>
+          <div className="absolute inset-0 bg-black/30" />
+          <div
+            className="absolute inset-y-0 right-0 w-64 bg-background border-l shadow-xl"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="p-3 flex items-center justify-between border-b">
+              <div className="font-medium">תפריט</div>
+              <Button variant="ghost" size="sm" onClick={() => setNavOpen(false)}>סגור</Button>
+            </div>
             {nav}
           </div>
         </div>
