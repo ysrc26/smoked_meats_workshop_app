@@ -1,3 +1,4 @@
+// src/app/admin/page.tsx
 'use client'
 
 import { useEffect, useMemo, useState } from 'react'
@@ -132,8 +133,8 @@ export default function AdminPage() {
       </header>
 
       {/* תוכן ראשי: מפנה מקום לסייד־בר בימין בדסקטופ */}
-      <main className="p-4 md:pr-72">
-        <div className="space-y-6">
+      <main className="md:pr-72">
+        <div className="w-full space-y-6">
           {view === 'new'  && <NewWorkshopForm />}
           {view === 'open' && <OpenWorkshops />}
           {view === 'regs' && (

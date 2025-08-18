@@ -57,44 +57,43 @@ export default function NewWorkshopForm({ onCreated }: { onCreated?: () => void 
   }
 
   return (
-    <Card className="border border-line shadow-sm">
-      <CardHeader className="pb-4">
+    <Card className="w-full border border-line shadow-sm">
+      <CardHeader className="pb-6">
         <CardTitle className="text-2xl">פתיחת סדנה חדשה</CardTitle>
         <CardDescription className="text-sm text-muted-foreground">
           מלא את פרטי הסדנה. שדות חובה: כותרת, תאריך ושעה.
         </CardDescription>
       </CardHeader>
       <Separator />
-      <CardContent className="pt-6">
-        <div className="grid grid-cols-1 gap-6">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            <div className="space-y-2">
-              <Label htmlFor="title" className="font-semibold">כותרת</Label>
-              <Input id="title" placeholder="סדנת עישון בשרים" value={title} onChange={(e) => setTitle(e.target.value)} />
+      <CardContent className="pt-8">
+        {/* גריד רחב, בנייד עמודה—בדסקטופ 2/3 עמודות */}
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          <div className="space-y-2">
+            <Label htmlFor="title" className="font-semibold">כותרת</Label>
+            <Input id="title" placeholder="סדנת עישון בשרים" value={title} onChange={(e) => setTitle(e.target.value)} />
+          </div>
+          <div className="grid grid-cols-2 gap-4">
+            <div className="space-y-6">
+              <Label htmlFor="date" className="font-semibold">תאריך</Label>
+              <Input id="date" type="date" value={date} onChange={(e) => setDate(e.target.value)} />
             </div>
-            <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label htmlFor="date" className="font-semibold">תאריך</Label>
-                <Input id="date" type="date" value={date} onChange={(e) => setDate(e.target.value)} />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="time" className="font-semibold">שעה</Label>
-                <Input id="time" type="time" value={time} onChange={(e) => setTime(e.target.value)} />
-              </div>
+            <div className="space-y-6">
+              <Label htmlFor="time" className="font-semibold">שעה</Label>
+              <Input id="time" type="time" value={time} onChange={(e) => setTime(e.target.value)} />
             </div>
           </div>
-
-          <div className="space-y-2">
+          <div className="grid grid-cols-1 gap-2">
+          <div className="space-y-6">
             <Label htmlFor="description" className="font-semibold">תיאור</Label>
             <Textarea id="description" rows={3} placeholder="מה נלמד? אילו נתחים נטעם?…" value={description} onChange={(e) => setDescription(e.target.value)} />
           </div>
+          </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6 items-end">
-            <div className="space-y-2">
+            <div className="space-y-6">
               <Label htmlFor="capacity" className="font-semibold">קיבולת</Label>
               <Input id="capacity" type="number" min={1} value={capacity} onChange={(e) => setCapacity(Number(e.target.value || 0))} />
             </div>
-            <div className="space-y-2">
+            <div className="space-y-6">
               <Label htmlFor="price" className="font-semibold">מחיר (ש"ח)</Label>
               <Input
                 id="price"
@@ -116,22 +115,24 @@ export default function NewWorkshopForm({ onCreated }: { onCreated?: () => void 
               <Switch id="active" checked={active} onCheckedChange={(v) => setActive(Boolean(v))} />
               <Label htmlFor="active" className="cursor-pointer">פעיל</Label>
             </div>
-          </div>
 
-          <div className="space-y-2">
+          <div className="space-y-6">
             <Label htmlFor="payment" className="font-semibold">קישור תשלום (אופציונלי)</Label>
             <Input id="payment" placeholder="https://pay.example.com/..." value={paymentLink} onChange={(e) => setPaymentLink(e.target.value)} inputMode="url" />
             <div className="text-xs text-muted-foreground">אם מולא — יוצג למשתמש לאחר הרשמה.</div>
           </div>
 
           {err && (
-            <Alert variant="destructive">
-              <AlertTitle>שגיאה</AlertTitle>
-              <AlertDescription>{err}</AlertDescription>
-            </Alert>
+            <div className="mt-4 text-sm text-red-600 border border-red-200 bg-red-50 rounded-md p-3">
+              <Alert variant="destructive">
+                <AlertTitle>שגיאה</AlertTitle>
+                <AlertDescription>{err}</AlertDescription>
+              </Alert>
+            </div>
           )}
         </div>
       </CardContent>
+
       <CardFooter className="flex justify-end">
         <Button onClick={submit} disabled={busy || !title || !date || !time}>
           {busy ? 'שומר…' : 'יצירה'}

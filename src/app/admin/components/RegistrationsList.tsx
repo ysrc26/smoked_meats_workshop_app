@@ -1,3 +1,4 @@
+// src/app/admin/components/RegistrationsList.tsx
 'use client'
 
 import { useEffect, useState } from 'react'
@@ -102,7 +103,7 @@ function PaymentsDialog({
     <Dialog open={open} onOpenChange={(v)=> v ? null : onClose()}>
       <DialogContent className="w-full sm:max-w-2xl">
         <DialogHeader>
-          <DialogTitle>תשלומים – {registration.full_name}</DialogTitle>
+          <DialogTitle>תשלומים — {registration.full_name}</DialogTitle>
           <DialogDescription className="text-xs">
             ניהול היסטוריית תשלומים להרשמה. סכום כולל (משוער): {total || '—'} ₪
           </DialogDescription>
@@ -303,7 +304,7 @@ export default function RegistrationsList(props: {
 
   const renderPaidCell = (r: any) => {
     const amount = Number(r.amount_paid ?? 0)
-       const pricePerSeat = Number(r.workshop?.price ?? NaN)
+    const pricePerSeat = Number(r.workshop?.price ?? NaN)
     const seats = Number(r.seats ?? 1)
 
     if (Number.isFinite(pricePerSeat)) {
@@ -319,93 +320,98 @@ export default function RegistrationsList(props: {
   }
 
   return (
-    <Card className="border border-line">
-      <CardHeader className="pb-4">
-        <div className="flex items-center justify-between">
+    <>
+      {/* כותרת וכפתור יצוא */}
+      <div className="px-4">
+        <div className="flex items-center justify-between mb-6">
           <div>
-            <CardTitle>רישומים אחרונים</CardTitle>
-            <CardDescription>סינון לפי סדנה/טווח תאריכים/סטטוס/תשלום, וייצוא CSV</CardDescription>
+            <h1 className="text-3xl font-bold">רישומים אחרונים</h1>
+            <p className="text-muted-foreground">סינון לפי סדנה/טווח תאריכים/סטטוס/תשלום, ויצוא CSV</p>
           </div>
           <Button onClick={onExportCsv}>
             <Download className="h-4 w-4 ml-2" />
-            ייצוא CSV
+            יצוא CSV
           </Button>
         </div>
 
         {/* פס סינון */}
-        <div className="mt-4 grid grid-cols-1 md:grid-cols-5 gap-3">
-          <div>
-            <Label className="text-xs">סדנה</Label>
-            <Select value={fWorkshop} onValueChange={(v)=> setFWorkshop(v)}>
-              <SelectTrigger><SelectValue placeholder="סדנה" /></SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">הכל</SelectItem>
-                {workshopsOptions.map((w: any) => (
-                  <SelectItem key={w.id} value={w.id}>{w.title}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-          <div>
-            <Label className="text-xs">סטטוס</Label>
-            <Select value={fStatus} onValueChange={(v:any)=> setFStatus(v)}>
-              <SelectTrigger><SelectValue /></SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">הכל</SelectItem>
-                <SelectItem value="pending">pending</SelectItem>
-                <SelectItem value="confirmed">confirmed</SelectItem>
-                <SelectItem value="cancelled">cancelled</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-          <div>
-            <Label className="text-xs">תשלום</Label>
-            <Select value={fPaid} onValueChange={(v:any)=> setFPaid(v)}>
-              <SelectTrigger><SelectValue /></SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">הכל</SelectItem>
-                <SelectItem value="paid">שולם</SelectItem>
-                <SelectItem value="unpaid">לא שולם</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-          <div>
-            <Label className="text-xs">מתאריך (הרשמה)</Label>
-            <Input type="date" value={fFrom} onChange={e=> setFFrom(e.target.value)} />
-          </div>
-          <div>
-            <Label className="text-xs">עד תאריך (הרשמה)</Label>
-            <Input type="date" value={fTo} onChange={e=> setFTo(e.target.value)} />
-          </div>
-        </div>
-      </CardHeader>
+        <Card className="w-full mb-6">
+          <CardContent className="p-6">
+            <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
+              <div>
+                <Label className="text-sm font-medium">סדנה</Label>
+                <Select value={fWorkshop} onValueChange={(v)=> setFWorkshop(v)}>
+                  <SelectTrigger><SelectValue placeholder="סדנה" /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">הכל</SelectItem>
+                    {workshopsOptions.map((w: any) => (
+                      <SelectItem key={w.id} value={w.id}>{w.title}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div>
+                <Label className="text-sm font-medium">סטטוס</Label>
+                <Select value={fStatus} onValueChange={(v:any)=> setFStatus(v)}>
+                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">הכל</SelectItem>
+                    <SelectItem value="pending">pending</SelectItem>
+                    <SelectItem value="confirmed">confirmed</SelectItem>
+                    <SelectItem value="cancelled">cancelled</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div>
+                <Label className="text-sm font-medium">תשלום</Label>
+                <Select value={fPaid} onValueChange={(v:any)=> setFPaid(v)}>
+                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">הכל</SelectItem>
+                    <SelectItem value="paid">שולם</SelectItem>
+                    <SelectItem value="unpaid">לא שולם</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div>
+                <Label className="text-sm font-medium">מתאריך (הרשמה)</Label>
+                <Input type="date" value={fFrom} onChange={e=> setFFrom(e.target.value)} />
+              </div>
+              <div>
+                <Label className="text-sm font-medium">עד תאריך (הרשמה)</Label>
+                <Input type="date" value={fTo} onChange={e=> setFTo(e.target.value)} />
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
 
-      <CardContent>
-        {/* מיכל גלילה לטבלה בלבד */}
-        <div className="rounded-md border">
-          <div className="max-h-[70vh] overflow-auto">
-            <Table className="min-w-[1000px]">
-              <TableHeader className="sticky top-0 bg-background z-10">
+      {/* טבלת הרישומים - מתפרסת על כל רוחב המסך */}
+      <div className="w-full px-4">
+        <div className="rounded-lg border bg-card w-full">
+          <div className="w-full overflow-x-auto">
+            <Table className="min-w-[1200px]">
+              <TableHeader className="bg-muted/50">
                 <TableRow>
-                  <TableHead className="text-right">סדנה</TableHead>
-                  <TableHead className="text-right">שם</TableHead>
-                  <TableHead className="text-right">אימייל</TableHead>
-                  <TableHead className="text-right">טלפון</TableHead>
-                  <TableHead className="text-right">כמות</TableHead>
-                  <TableHead className="text-right">שולם</TableHead>
-                  <TableHead className="text-right">שולם בפועל</TableHead>
-                  <TableHead className="text-right">שיטת תשלום</TableHead>
-                  <TableHead className="text-right">סטטוס</TableHead>
-                  <TableHead className="text-right">תאריך הרשמה</TableHead>
-                  <TableHead className="text-right">קישור תשלום</TableHead>
-                  <TableHead className="text-right">פעולות</TableHead>
+                  <TableHead className="text-right font-semibold">סדנה</TableHead>
+                  <TableHead className="text-right font-semibold">שם</TableHead>
+                  <TableHead className="text-right font-semibold">אימייל</TableHead>
+                  <TableHead className="text-right font-semibold">טלפון</TableHead>
+                  <TableHead className="text-right font-semibold">כמות</TableHead>
+                  <TableHead className="text-right font-semibold">שולם</TableHead>
+                  <TableHead className="text-right font-semibold">שולם בפועל</TableHead>
+                  <TableHead className="text-right font-semibold">שיטת תשלום</TableHead>
+                  <TableHead className="text-right font-semibold">סטטוס</TableHead>
+                  <TableHead className="text-right font-semibold">תאריך הרשמה</TableHead>
+                  <TableHead className="text-right font-semibold">קישור תשלום</TableHead>
+                  <TableHead className="text-right font-semibold">פעולות</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {rows.map((r) => {
                   const isEdit = r.id === editId
                   return (
-                    <TableRow key={r.id} className="align-top">
+                    <TableRow key={r.id} className="align-top hover:bg-muted/30">
                       {/* סדנה */}
                       <TableCell className="text-right">
                         <div className="font-medium">{r.workshop?.title || '—'}</div>
@@ -414,7 +420,7 @@ export default function RegistrationsList(props: {
                         </div>
                       </TableCell>
 
-                      <TableCell className="text-right">{r.full_name}</TableCell>
+                      <TableCell className="text-right font-medium">{r.full_name}</TableCell>
                       <TableCell className="text-right">{r.email}</TableCell>
                       <TableCell className="text-right">{r.phone}</TableCell>
 
@@ -474,7 +480,7 @@ export default function RegistrationsList(props: {
                             onValueChange={(val) => setDraft((d: any) => ({ ...d, payment_method: val }))}
                             disabled={busyId === r.id}
                           >
-                            <SelectTrigger className="w-36">
+                            <SelectTrigger className="w-32">
                               <SelectValue placeholder="בחר שיטה" />
                             </SelectTrigger>
                             <SelectContent>
@@ -498,7 +504,7 @@ export default function RegistrationsList(props: {
                             onValueChange={(val) => setDraft((d: any) => ({ ...d, status: val }))}
                             disabled={busyId === r.id}
                           >
-                            <SelectTrigger className="w-32">
+                            <SelectTrigger className="w-28">
                               <SelectValue />
                             </SelectTrigger>
                             <SelectContent>
@@ -508,11 +514,17 @@ export default function RegistrationsList(props: {
                             </SelectContent>
                           </Select>
                         ) : (
-                          r.status
+                          <span className={`px-2 py-1 rounded text-xs font-medium ${
+                            r.status === 'confirmed' ? 'bg-green-100 text-green-800' :
+                            r.status === 'cancelled' ? 'bg-red-100 text-red-800' :
+                            'bg-yellow-100 text-yellow-800'
+                          }`}>
+                            {r.status}
+                          </span>
                         )}
                       </TableCell>
 
-                      <TableCell className="text-right">
+                      <TableCell className="text-right text-sm">
                         {new Date(r.created_at).toLocaleString('he-IL')}
                       </TableCell>
 
@@ -520,24 +532,29 @@ export default function RegistrationsList(props: {
                       <TableCell className="text-right">
                         {isEdit ? (
                           <Input
-                            className="w-48"
+                            className="w-36"
                             value={draft.payment_link ?? ''}
                             onChange={(e) => setDraft((d: any) => ({ ...d, payment_link: e.target.value }))}
                           />
                         ) : (
-                          r.payment_link ? <a href={r.payment_link} target="_blank" rel="noreferrer" className="underline">קישור</a> : '—'
+                          r.payment_link ? 
+                            <a href={r.payment_link} target="_blank" rel="noreferrer" className="text-blue-600 hover:text-blue-800 underline text-sm">
+                              קישור
+                            </a> : '—'
                         )}
                       </TableCell>
 
                       {/* פעולות */}
                       <TableCell className="text-right">
                         {!isEdit ? (
-                          <div className="flex items-center gap-2 justify-end">
-                            <Button variant="secondary" onClick={() => startEdit(r)}>עריכה</Button>
-                            <Button variant="outline" onClick={() => openPayments(r)}>תשלומים</Button>
+                          <div className="flex items-center gap-1 justify-end">
+                            <Button variant="secondary" size="sm" onClick={() => startEdit(r)}>עריכה</Button>
+                            <Button variant="outline" size="sm" onClick={() => openPayments(r)}>תשלומים</Button>
                             <AlertDialog>
                               <AlertDialogTrigger asChild>
-                                <Button variant="ghost" className="text-red-600 hover:text-red-700" disabled={busyId === r.id}>מחיקה</Button>
+                                <Button variant="ghost" size="sm" className="text-red-600 hover:text-red-700" disabled={busyId === r.id}>
+                                  מחיקה
+                                </Button>
                               </AlertDialogTrigger>
                               <AlertDialogContent>
                                 <AlertDialogHeader>
@@ -552,9 +569,9 @@ export default function RegistrationsList(props: {
                             </AlertDialog>
                           </div>
                         ) : (
-                          <div className="flex items-center gap-2 justify-end">
-                            <Button variant="secondary" onClick={cancelEdit} disabled={busyId === r.id}>ביטול</Button>
-                            <Button onClick={() => saveEdit(r.id)} disabled={busyId === r.id || Number(draft.seats) < 1}>
+                          <div className="flex items-center gap-1 justify-end">
+                            <Button variant="secondary" size="sm" onClick={cancelEdit} disabled={busyId === r.id}>ביטול</Button>
+                            <Button size="sm" onClick={() => saveEdit(r.id)} disabled={busyId === r.id || Number(draft.seats) < 1}>
                               {busyId === r.id ? "שומר…" : "שמירה"}
                             </Button>
                           </div>
@@ -565,7 +582,7 @@ export default function RegistrationsList(props: {
                 })}
                 {rows.length === 0 && (
                   <TableRow>
-                    <TableCell colSpan={12} className="text-center text-muted-foreground">
+                    <TableCell colSpan={12} className="text-center text-muted-foreground py-8">
                       אין רישומים בהתאם לסינון.
                     </TableCell>
                   </TableRow>
@@ -574,7 +591,7 @@ export default function RegistrationsList(props: {
             </Table>
           </div>
         </div>
-      </CardContent>
+      </div>
 
       {paymentsReg && (
         <PaymentsDialog
@@ -584,6 +601,6 @@ export default function RegistrationsList(props: {
           onChanged={load}
         />
       )}
-    </Card>
+    </>
   )
 }
