@@ -93,13 +93,13 @@ function WorkshopRow({ w, onChanged }: { w: any, onChanged: () => void }) {
           <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
             <div className="text-base font-semibold">{w.title}</div>
             <div className="flex flex-wrap items-center gap-3">
-              <Badge variant={w.is_active ? 'default' : 'secondary'}>
+              <Badge variant={w.is_active ? 'active' : 'destructive'}>
                 {w.is_active ? 'פעילה' : 'מושבתת'}
               </Badge>
 
               {!w.is_public && (
                 <>
-                  <Badge variant="outline">פרטית</Badge>
+                  <Badge variant="private">פרטית</Badge>
                   <Button
                     variant="secondary"
                     size="sm"

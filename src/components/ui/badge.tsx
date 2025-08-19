@@ -15,6 +15,10 @@ const badgeVariants = cva(
         destructive:
           "border-transparent bg-destructive text-destructive-foreground shadow hover:bg-destructive/80",
         outline: "text-foreground",
+        active:
+          "border-transparent shadow hover:opacity-80",
+        private:
+          "border-transparent shadow hover:opacity-80",
       },
     },
     defaultVariants: {
@@ -28,8 +32,20 @@ export interface BadgeProps
     VariantProps<typeof badgeVariants> {}
 
 function Badge({ className, variant, ...props }: BadgeProps) {
+  const customStyles = variant === 'active' ? {
+    backgroundColor: '#dcfce7',
+    color: '#166534'
+  } : variant === 'private' ? {
+    backgroundColor: '#fef9c3', 
+    color: '#854d0e'
+  } : {}
+
   return (
-    <div className={cn(badgeVariants({ variant }), className)} {...props} />
+    <div 
+      className={cn(badgeVariants({ variant }), className)} 
+      style={customStyles}
+      {...props} 
+    />
   )
 }
 

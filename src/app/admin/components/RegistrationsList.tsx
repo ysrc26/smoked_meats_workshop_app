@@ -32,7 +32,7 @@ function PaymentsDialog({
   const [loading, setLoading] = useState(false)
   const [rows, setRows] = useState<any[]>([])
   const [amount, setAmount] = useState<number>(0)
-  const [method, setMethod] = useState<'none'|'cash'|'card'|'transfer'|'other'>('none')
+  const [method, setMethod] = useState<'none' | 'cash' | 'card' | 'transfer' | 'other'>('none')
   const [note, setNote] = useState<string>("")
   const [busy, setBusy] = useState(false)
   const [err, setErr] = useState<string>("")
@@ -69,12 +69,12 @@ function PaymentsDialog({
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(body)
       })
-      const j = await r.json().catch(()=> ({}))
+      const j = await r.json().catch(() => ({}))
       if (!r.ok || j.error) throw new Error(j.error || 'שגיאה בהוספת תשלום')
       setAmount(0); setMethod('none'); setNote("")
       await load()
       await onChanged()
-    } catch (e:any) {
+    } catch (e: any) {
       setErr(e?.message || 'שגיאה')
     } finally {
       setBusy(false)
@@ -85,11 +85,11 @@ function PaymentsDialog({
     setBusy(true); setErr("")
     try {
       const r = await fetch(`/api/admin/registrations/${registration.id}/payments/${pid}`, { method: 'DELETE' })
-      const j = await r.json().catch(()=> ({}))
+      const j = await r.json().catch(() => ({}))
       if (!r.ok || j.error) throw new Error(j.error || 'שגיאה במחיקה')
       await load()
       await onChanged()
-    } catch (e:any) {
+    } catch (e: any) {
       setErr(e?.message || 'שגיאה')
     } finally {
       setBusy(false)
@@ -100,7 +100,7 @@ function PaymentsDialog({
   const sumPaid = rows.reduce((s, p) => s + Number(p.amount || 0), 0)
 
   return (
-    <Dialog open={open} onOpenChange={(v)=> v ? null : onClose()}>
+    <Dialog open={open} onOpenChange={(v) => v ? null : onClose()}>
       <DialogContent className="w-full sm:max-w-2xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>תשלומים — {registration.full_name}</DialogTitle>
@@ -136,7 +136,7 @@ function PaymentsDialog({
                       <TableCell className="text-right">{p.source}</TableCell>
                       <TableCell className="text-right">{p.note ?? '—'}</TableCell>
                       <TableCell className="text-right">
-                        <Button variant="ghost" size="icon" onClick={()=>removePayment(p.id)} title="מחק">
+                        <Button variant="ghost" size="icon" onClick={() => removePayment(p.id)} title="מחק">
                           <Trash2 className="h-4 w-4" />
                         </Button>
                       </TableCell>
@@ -161,7 +161,7 @@ function PaymentsDialog({
             </div>
             <div className="space-y-1">
               <Label className="font-semibold">שיטה</Label>
-              <Select value={method} onValueChange={(v:any)=> setMethod(v)}>
+              <Select value={method} onValueChange={(v: any) => setMethod(v)}>
                 <SelectTrigger><SelectValue placeholder="בחר שיטה" /></SelectTrigger>
                 <SelectContent>
                   <SelectItem value="none">—</SelectItem>
@@ -200,10 +200,10 @@ export default function RegistrationsList(props: {
   filtersQS: string
   fWorkshop: string
   setFWorkshop: (v: string) => void
-  fStatus: 'all'|'pending'|'confirmed'|'cancelled'
-  setFStatus: (v: 'all'|'pending'|'confirmed'|'cancelled') => void
-  fPaid: 'all'|'paid'|'unpaid'
-  setFPaid: (v: 'all'|'paid'|'unpaid') => void
+  fStatus: 'all' | 'pending' | 'confirmed' | 'cancelled'
+  setFStatus: (v: 'all' | 'pending' | 'confirmed' | 'cancelled') => void
+  fPaid: 'all' | 'paid' | 'unpaid'
+  setFPaid: (v: 'all' | 'paid' | 'unpaid') => void
   fFrom: string
   setFFrom: (v: string) => void
   fTo: string
@@ -340,7 +340,7 @@ export default function RegistrationsList(props: {
             <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
               <div>
                 <Label className="text-sm font-medium">סדנה</Label>
-                <Select value={fWorkshop} onValueChange={(v)=> setFWorkshop(v)}>
+                <Select value={fWorkshop} onValueChange={(v) => setFWorkshop(v)}>
                   <SelectTrigger><SelectValue placeholder="סדנה" /></SelectTrigger>
                   <SelectContent>
                     <SelectItem value="all">הכל</SelectItem>
@@ -352,7 +352,7 @@ export default function RegistrationsList(props: {
               </div>
               <div>
                 <Label className="text-sm font-medium">סטטוס</Label>
-                <Select value={fStatus} onValueChange={(v:any)=> setFStatus(v)}>
+                <Select value={fStatus} onValueChange={(v: any) => setFStatus(v)}>
                   <SelectTrigger><SelectValue /></SelectTrigger>
                   <SelectContent>
                     <SelectItem value="all">הכל</SelectItem>
@@ -364,7 +364,7 @@ export default function RegistrationsList(props: {
               </div>
               <div>
                 <Label className="text-sm font-medium">תשלום</Label>
-                <Select value={fPaid} onValueChange={(v:any)=> setFPaid(v)}>
+                <Select value={fPaid} onValueChange={(v: any) => setFPaid(v)}>
                   <SelectTrigger><SelectValue /></SelectTrigger>
                   <SelectContent>
                     <SelectItem value="all">הכל</SelectItem>
@@ -375,13 +375,32 @@ export default function RegistrationsList(props: {
               </div>
               <div>
                 <Label className="text-sm font-medium">מתאריך (הרשמה)</Label>
-                <Input type="date" value={fFrom} onChange={e=> setFFrom(e.target.value)} />
+                <Input type="date" value={fFrom} onChange={e => setFFrom(e.target.value)} />
               </div>
               <div>
                 <Label className="text-sm font-medium">עד תאריך (הרשמה)</Label>
-                <Input type="date" value={fTo} onChange={e=> setFTo(e.target.value)} />
+                <Input type="date" value={fTo} onChange={e => setFTo(e.target.value)} />
               </div>
             </div>
+
+            {/* איפוס מסננים */}
+            <div className="flex justify-end mt-4">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => {
+                  setFWorkshop('all')
+                  setFStatus('all')
+                  setFPaid('all')
+                  setFFrom('')
+                  setFTo('')
+                }}
+                className="text-muted-foreground"
+              >
+                ניקוי מסננים
+              </Button>
+            </div>
+
           </CardContent>
         </Card>
       </div>
@@ -514,11 +533,10 @@ export default function RegistrationsList(props: {
                             </SelectContent>
                           </Select>
                         ) : (
-                          <span className={`px-2 py-1 rounded text-xs font-medium ${
-                            r.status === 'confirmed' ? 'bg-green-100 text-green-800' :
-                            r.status === 'cancelled' ? 'bg-red-100 text-red-800' :
-                            'bg-yellow-100 text-yellow-800'
-                          }`}>
+                          <span className={`px-2 py-1 rounded text-xs font-medium ${r.status === 'confirmed' ? 'bg-green-100 text-green-800' :
+                              r.status === 'cancelled' ? 'bg-red-100 text-red-800' :
+                                'bg-yellow-100 text-yellow-800'
+                            }`}>
                             {r.status}
                           </span>
                         )}
@@ -537,7 +555,7 @@ export default function RegistrationsList(props: {
                             onChange={(e) => setDraft((d: any) => ({ ...d, payment_link: e.target.value }))}
                           />
                         ) : (
-                          r.payment_link ? 
+                          r.payment_link ?
                             <a href={r.payment_link} target="_blank" rel="noreferrer" className="text-blue-600 hover:text-blue-800 underline text-sm">
                               קישור
                             </a> : '—'
@@ -563,7 +581,7 @@ export default function RegistrationsList(props: {
                                 </AlertDialogHeader>
                                 <AlertDialogFooter>
                                   <AlertDialogCancel>ביטול</AlertDialogCancel>
-                                  <AlertDialogAction onClick={() => { setBusyId(r.id); fetch(`/api/admin/registrations/${r.id}`, { method: "DELETE" }).then(load).finally(()=> setBusyId(null)) }} className="bg-red-600 hover:bg-red-700">מחק</AlertDialogAction>
+                                  <AlertDialogAction onClick={() => { setBusyId(r.id); fetch(`/api/admin/registrations/${r.id}`, { method: "DELETE" }).then(load).finally(() => setBusyId(null)) }} className="bg-red-600 hover:bg-red-700">מחק</AlertDialogAction>
                                 </AlertDialogFooter>
                               </AlertDialogContent>
                             </AlertDialog>
@@ -596,7 +614,7 @@ export default function RegistrationsList(props: {
       {paymentsReg && (
         <PaymentsDialog
           open={paymentsOpen}
-          onClose={()=> setPaymentsOpen(false)}
+          onClose={() => setPaymentsOpen(false)}
           registration={paymentsReg}
           onChanged={load}
         />

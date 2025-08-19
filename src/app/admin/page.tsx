@@ -58,32 +58,34 @@ function AdminLogin({ onOk }: { onOk: () => void }) {
 export default function AdminPage() {
   const [authed, setAuthed] = useState(false)
   const [navOpen, setNavOpen] = useState(false)
-  const [view, setView] = useState<'new'|'open'|'regs'>('new')
+  const [view, setView] = useState<'new' | 'open' | 'regs'>('new')
 
   // ---- סדנאות לבחירת סינון ברשימת נרשמים ----
   const [workshopsOptions, setWorkshopsOptions] = useState<any[]>([])
   useEffect(() => {
     if (!authed) return
     fetch('/api/admin/workshops')
-      .then(r => r.json().catch(()=> ({})))
+      .then(r => r.json().catch(() => ({})))
       .then(j => setWorkshopsOptions(j?.data || []))
-      .catch(()=> setWorkshopsOptions([]))
+      .catch(() => setWorkshopsOptions([]))
   }, [authed])
 
   // ---- סטייט סינון לרשימת נרשמים ----
   const [fWorkshop, setFWorkshop] = useState<string>('all')
-  const [fStatus, setFStatus]   = useState<'all'|'pending'|'confirmed'|'cancelled'>('all')
-  const [fPaid, setFPaid]       = useState<'all'|'paid'|'unpaid'>('all')
-  const [fFrom, setFFrom]       = useState<string>('') // YYYY-MM-DD
-  const [fTo, setFTo]           = useState<string>('') // YYYY-MM-DD
+  const [fStatus, setFStatus] = useState<'all' | 'pending' | 'confirmed' | 'cancelled'>('all')
+  const [fPaid, setFPaid] = useState<'all' | 'paid' | 'unpaid'>('all')
+  const [fFrom, setFFrom] = useState<string>('') // YYYY-MM-DD
+  const [fTo, setFTo] = useState<string>('') // YYYY-MM-DD
 
   const filtersQS = useMemo(() => {
     const params = new URLSearchParams()
-    if (fWorkshop && fWorkshop !== 'all') params.set('workshop', fWorkshop)
-    if (fStatus && fStatus !== 'all')     params.set('status', fStatus)
-    if (fPaid && fPaid !== 'all')         params.set('paid', fPaid)
-    if (fFrom)                            params.set('from', fFrom)
-    if (fTo)                              params.set('to', fTo)
+    if (fWorkshop && fWorkshop !== 'all') params.set('workshop_id', fWorkshop)
+    if (fStatus && fStatus !== 'all') params.set('status', fStatus)
+    if (fPaid && fPaid !== 'all') {
+      params.set('paid', fPaid === 'paid' ? 'true' : 'false')
+    }
+    if (fFrom) params.set('from', fFrom)
+    if (fTo) params.set('to', fTo)
     return params.toString()
   }, [fWorkshop, fStatus, fPaid, fFrom, fTo])
 
@@ -92,21 +94,21 @@ export default function AdminPage() {
   const nav = (
     <nav className="flex flex-col gap-2 p-4">
       <Button
-        variant={view==='new' ? 'secondary':'ghost'}
+        variant={view === 'new' ? 'secondary' : 'ghost'}
         onClick={() => { setView('new'); setNavOpen(false) }}
         className="justify-start"
       >
         פתיחת סדנא חדשה
       </Button>
       <Button
-        variant={view==='open'? 'secondary':'ghost'}
+        variant={view === 'open' ? 'secondary' : 'ghost'}
         onClick={() => { setView('open'); setNavOpen(false) }}
         className="justify-start"
       >
         סדנאות פתוחות
       </Button>
       <Button
-        variant={view==='regs'? 'secondary':'ghost'}
+        variant={view === 'regs' ? 'secondary' : 'ghost'}
         onClick={() => { setView('regs'); setNavOpen(false) }}
         className="justify-start"
       >
@@ -135,7 +137,7 @@ export default function AdminPage() {
       {/* תוכן ראשי: מפנה מקום לסייד־בר בימין בדסקטופ */}
       <main className="md:pr-72">
         <div className="w-full space-y-6">
-          {view === 'new'  && <NewWorkshopForm />}
+          {view === 'new' && <NewWorkshopForm />}
           {view === 'open' && <OpenWorkshops />}
           {view === 'regs' && (
             <RegistrationsList
