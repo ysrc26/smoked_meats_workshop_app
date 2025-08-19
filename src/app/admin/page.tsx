@@ -13,70 +13,48 @@ import NewWorkshopForm from './components/NewWorkshopForm'
 import OpenWorkshops from './components/OpenWorkshops'
 import RegistrationsList from './components/RegistrationsList'
 
-function AdminLogin({ onOk }: { onOk: () => void }) {
-  const [password, setPassword] = useState('')
-  const [err, setErr] = useState('')
-
-  const submit = async () => {
-    setErr('')
-    const r = await fetch('/api/admin/login', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ password })
-    })
-    if (r.ok) onOk()
-    else setErr('סיסמה שגויה')
-  }
-
-  return (
-    <div className="max-w-md mx-auto p-4">
-      <Card className="border border-line shadow-sm">
-        <CardHeader>
-          <CardTitle>כניסת מנהל</CardTitle>
-          <CardDescription>הזן את סיסמת המנהל כדי להמשיך</CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-3">
-          <div className="space-y-2">
-            <Label htmlFor="admin-pass" className="font-semibold">סיסמה</Label>
-            <Input id="admin-pass" type="password" placeholder="••••••" value={password} onChange={e => setPassword(e.target.value)} />
-          </div>
-          {err && (
-            <Alert variant="destructive">
-              <AlertTitle>שגיאה</AlertTitle>
-              <AlertDescription>{err}</AlertDescription>
-            </Alert>
-          )}
-        </CardContent>
-        <CardFooter className="flex justify-end">
-          <Button onClick={submit} disabled={!password.trim()}>כניסה</Button>
-        </CardFooter>
-      </Card>
-    </div>
-  )
-}
 
 export default function AdminPage() {
-  const [authed, setAuthed] = useState(false)
+  const [loading, setLoading] = useState(true)
   const [navOpen, setNavOpen] = useState(false)
   const [view, setView] = useState<'new' | 'open' | 'regs'>('new')
-
-  // ---- סדנאות לבחירת סינון ברשימת נרשמים ----
   const [workshopsOptions, setWorkshopsOptions] = useState<any[]>([])
-  useEffect(() => {
-    if (!authed) return
-    fetch('/api/admin/workshops')
-      .then(r => r.json().catch(() => ({})))
-      .then(j => setWorkshopsOptions(j?.data || []))
-      .catch(() => setWorkshopsOptions([]))
-  }, [authed])
-
-  // ---- סטייט סינון לרשימת נרשמים ----
   const [fWorkshop, setFWorkshop] = useState<string>('all')
   const [fStatus, setFStatus] = useState<'all' | 'pending' | 'confirmed' | 'cancelled'>('all')
   const [fPaid, setFPaid] = useState<'all' | 'paid' | 'unpaid'>('all')
   const [fFrom, setFFrom] = useState<string>('') // YYYY-MM-DD
   const [fTo, setFTo] = useState<string>('') // YYYY-MM-DD
 
+  // בדיקת אימות בטעינת הדף
+  useEffect(() => {
+    const checkAuth = async () => {
+      try {
+        const res = await fetch('/api/admin/workshops')
+        if (res.status === 401) {
+          window.location.href = '/admin/login'
+          return
+        }
+      } catch (error) {
+        window.location.href = '/admin/login'
+        return
+      }
+      setLoading(false)
+    }
+
+    checkAuth()
+  }, [])
+
+  // ---- טעינת סדנאות לפילטר ----
+  useEffect(() => {
+    if (!loading) { // רק אחרי שהאימות עבר
+      fetch('/api/admin/workshops')
+        .then(r => r.json().catch(() => ({})))
+        .then(j => setWorkshopsOptions(j?.data || []))
+        .catch(() => setWorkshopsOptions([]))
+    }
+  }, [loading])
+
+  // ---- סינון לרשימת נרשמים ----
   const filtersQS = useMemo(() => {
     const params = new URLSearchParams()
     if (fWorkshop && fWorkshop !== 'all') params.set('workshop_id', fWorkshop)
@@ -89,10 +67,27 @@ export default function AdminPage() {
     return params.toString()
   }, [fWorkshop, fStatus, fPaid, fFrom, fTo])
 
-  if (!authed) return <AdminLogin onOk={() => setAuthed(true)} />
+  // אם עדיין טוען - הראה loading
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-background flex items-center justify-center">
+        <div className="text-muted-foreground">בודק הרשאות...</div>
+      </div>
+    )
+  }
 
+  // ---- ניהול התחברות ----
+  const logout = async () => {
+    await fetch('/api/admin/logout', { method: 'POST' })
+    window.location.href = '/admin/login'
+  }
+
+  // ---- ניהול ניווט בין תצוגות ----
   const nav = (
     <nav className="flex flex-col gap-2 p-4">
+      <Button variant="destructive" className="mb-4" onClick={logout}>
+        התנתק
+      </Button>
       <Button
         variant={view === 'new' ? 'secondary' : 'ghost'}
         onClick={() => { setView('new'); setNavOpen(false) }}
