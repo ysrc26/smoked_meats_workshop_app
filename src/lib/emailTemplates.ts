@@ -6,7 +6,7 @@ const fmtDate = (d: string | Date) =>
 export function registrationReceived(name: string, w: W, seats: number) {
   const when = fmtDate(w.event_at)
   const payLine = w.payment_link
-    ? `<p>לתשלום מיידי, נא לחצו: <a href="${w.payment_link}" target="_blank" rel="noreferrer">${w.payment_link}</a></p>`
+    ? `<p>קישור לתשלום: <a href="${w.payment_link}" target="_blank" rel="noreferrer">${w.payment_link}</a></p>`
     : `<p>ניצור עמך קשר להשלמת התשלום.</p>`
 
   const total = w.price && Number.isFinite(w.price) ? ` (סה״כ ~ ${w.price * seats} ₪)` : ''
